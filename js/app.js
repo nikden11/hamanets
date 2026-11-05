@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 
 const { esc, fmtMoney } = U;
 const $ = (s, r = document) => r.querySelector(s);
@@ -32,6 +32,7 @@ const ICONS = {
   down: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
   up: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
   arrowR: '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',
+  bars: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
   refresh: '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>',
 };
 const ic = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
@@ -44,6 +45,7 @@ const ui = {
   opsCat: null,
   opsSearch: '',
   budgetAnchor: U.today(),
+  statsYear: new Date().getFullYear(),
   catTab: 'expense',
 };
 try {
@@ -59,12 +61,15 @@ const rates = () => state.settings.rates;
 const catsOf = (type) => state.categories.filter((c) => c.type === type && !c.archived);
 const accounts = () => state.accounts.filter((a) => !a.archived);
 const range = () => U.periodRange(ui.period.kind, ui.period.anchor, ui.period.custom);
+// Режим кількох рахунків (готівка, картки, валюти). Вимкнено — один спільний облік, без переказів і вибору рахунку.
+const multi = () => !!state.settings.multiAccount;
 const NO_CAT = { name: 'Без категорії', icon: '❔', color: '#9aa0a6' };
 
 // ---------- Рендер ----------
 function render() {
   applyTheme();
-  const views = { home: viewHome, ops: viewOps, budgets: viewBudgets, accounts: viewAccounts };
+  if (!multi()) { ui.accountId = null; if (ui.tab === 'accounts') ui.tab = 'home'; }
+  const views = { home: viewHome, ops: viewOps, stats: viewStats, budgets: viewBudgets, accounts: viewAccounts };
   $('#app').innerHTML = views[ui.tab]() + tabbar();
 }
 
@@ -77,7 +82,7 @@ function applyTheme() {
 function tabbar() {
   const t = (id, icon, label) => `<button class="tab ${ui.tab === id ? 'on' : ''}" data-a="tab" data-id="${id}">${ic(icon)}<span>${label}</span></button>`;
   return `<nav class="tabbar"><div class="tabbar-in">
-    ${t('home', 'pie', 'Огляд')}${t('ops', 'list', 'Операції')}${t('budgets', 'target', 'Бюджети')}${t('accounts', 'card', 'Рахунки')}
+    ${t('home', 'pie', 'Огляд')}${t('ops', 'list', 'Операції')}${t('stats', 'bars', 'Статистика')}${t('budgets', 'target', 'Бюджети')}${multi() ? t('accounts', 'card', 'Рахунки') : ''}
   </div></nav>`;
 }
 
@@ -85,7 +90,7 @@ function headerTop() {
   const a = acc(ui.accountId);
   const label = a ? `${a.icon} <span class="n">${esc(a.name)}</span>` : `<span class="n">Усі рахунки</span>`;
   return `<div class="top-row">
-    <button class="acc-switch" data-a="pickAccount">${label}${ic('chevD')}</button>
+    ${multi() ? `<button class="acc-switch" data-a="pickAccount">${label}${ic('chevD')}</button>` : '<span class="top-title app-name">Гаманець</span>'}
     <button class="icon-btn" data-a="settings" aria-label="Налаштування">${ic('sliders')}</button>
   </div>`;
 }
@@ -213,6 +218,56 @@ function trendCard() {
     <div class="bars-x">${data.map((d) => `<span class="${d.month === curM ? 'cur' : ''}">${U.MONTHS_SHORT[+d.month.slice(5) - 1]}</span>`).join('')}</div></div>`;
 }
 
+// ---------- Статистика ----------
+function viewStats() {
+  const year = ui.statsYear;
+  const cur = base();
+  const data = monthlyTotals({ txs: state.txs, accounts: state.accounts, base: cur, rates: rates(), anchor: `${year}-12-01`, n: 12 });
+  const r = U.periodRange('year', `${year}-01-01`);
+  const s = summarize({ txs: state.txs, accounts: state.accounts, accountId: null, start: r.start, end: r.end, base: cur, rates: rates() });
+  // Середнє рахуємо по місяцях від першого з даними до поточного (для минулих років — до грудня)
+  const now = U.today();
+  const lastM = now.slice(0, 4) === String(year) ? +now.slice(5, 7) : now.slice(0, 4) > String(year) ? 12 : 0;
+  const firstM = data.findIndex((d) => d.income || d.expense) + 1;
+  const months = firstM && lastM >= firstM ? lastM - firstM + 1 : 0;
+  const avgE = months ? Math.round(s.expense / months) : 0;
+  const avgI = months ? Math.round(s.income / months) : 0;
+  const max = Math.max(1, ...data.flatMap((d) => [d.income, d.expense]));
+  const rows = [...s.byCat.entries()].filter(([, v]) => v.type === 'expense').sort((a, b) => b[1].amount - a[1].amount);
+
+  return `<header class="top"><div class="top-row"><span class="top-title">Статистика</span></div>
+    <div class="period-row">
+      <button class="icon-btn" data-a="statsShift" data-dir="-1" aria-label="Попередній рік">${ic('chevL')}</button>
+      <span class="period-label" style="text-align:center">${year} рік</span>
+      <button class="icon-btn" data-a="statsShift" data-dir="1" aria-label="Наступний рік">${ic('chevR')}</button>
+    </div></header>
+  <div class="card stats3">
+    <div><small>Доходи</small><b class="inc num">${fmtMoney(s.income, cur, { short: true })}</b></div>
+    <div><small>Витрати</small><b class="exp num">${fmtMoney(s.expense, cur, { short: true })}</b></div>
+    <div><small>Залишилось</small><b class="num">${fmtMoney(s.net, cur, { short: true, sign: true })}</b></div>
+  </div>
+  <div class="card stats3" style="padding-top:8px">
+    <div><small>Витрати / міс.</small><b class="num">${fmtMoney(avgE, cur, { short: true })}</b></div>
+    <div><small>Доходи / міс.</small><b class="num">${fmtMoney(avgI, cur, { short: true })}</b></div>
+    <div><small>Заощаджено</small><b class="num">${s.income > 0 ? Math.round((s.net / s.income) * 100) + '%' : '—'}</b></div>
+  </div>
+  <div class="card"><div class="card-h"><span>По місяцях</span>
+    <span class="legend"><span><i style="background:var(--inc)"></i>Доходи</span><span><i style="background:var(--exp)"></i>Витрати</span></span></div>
+    <div class="bars" style="gap:4px">${data.map((d) => `<button class="col" data-a="statsMonth" data-m="${d.month}" aria-label="${d.month}"><i class="n" style="height:${(d.income / max) * 100}%"></i><i class="e" style="height:${(d.expense / max) * 100}%"></i></button>`).join('')}</div>
+    <div class="bars-x" style="gap:4px">${data.map((d) => `<span class="${d.month === now.slice(0, 7) ? 'cur' : ''}">${U.MONTHS_SHORT[+d.month.slice(5) - 1].slice(0, 3)}</span>`).join('')}</div>
+    <p class="hint" style="padding:0 16px 12px;margin:0">Натисніть на місяць, щоб відкрити його на «Огляді».</p></div>
+  ${rows.length ? `<div class="card"><div class="card-h"><span>Категорії витрат</span><span class="muted">сер. / міс.</span></div>
+    ${rows.map(([id, v]) => {
+      const c = cat(id) ?? NO_CAT;
+      const pct = s.expense ? (v.amount / s.expense) * 100 : 0;
+      return `<button class="row" data-a="statsCat" data-cat="${id}" style="--c:${c.color}">
+        <span class="ico">${c.icon}</span>
+        <span class="mid"><div class="t1">${esc(c.name)}</div><div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div></span>
+        <span class="amt num">${fmtMoney(v.amount, cur, { short: true })}<small>${months ? fmtMoney(Math.round(v.amount / months), cur, { short: true }) : ''} · ${pct.toFixed(pct < 10 ? 1 : 0)}%</small></span>
+      </button>`;
+    }).join('')}</div>` : `<div class="empty"><div class="e-ico">📊</div>За ${year} рік ще немає операцій</div>`}`;
+}
+
 // ---------- Операції ----------
 function viewOps() {
   const s = currentSummary();
@@ -238,7 +293,7 @@ function opsList(s = currentSummary()) {
   }
   const byDay = new Map();
   for (const t of list) { if (!byDay.has(t.date)) byDay.set(t.date, []); byDay.get(t.date).push(t); }
-  const showAcc = !ui.accountId && accounts().length > 1;
+  const showAcc = multi() && !ui.accountId && accounts().length > 1;
   let html = '';
   let n = 0;
   for (const [day, items] of byDay) {
@@ -427,7 +482,7 @@ function renderEditor() {
     </div>
     <div class="ed-chips">
       <button class="chip ed-cat-chip" data-a="edPickCat" style="${c ? `background:${c.color};color:#fff` : ''}">${c ? `${c.icon} ${esc(c.name)}` : 'Категорія…'}</button>
-      <button class="chip" data-a="edPickAcc">${a.icon} ${esc(a.name)}</button>
+      ${multi() ? `<button class="chip" data-a="edPickAcc">${a.icon} ${esc(a.name)}</button>` : ''}
       <label class="chip">${ic('cal')} ${rel ?? U.fmtDate(ed.date)}<input type="date" value="${ed.date}" data-in="edDate" max="2100-12-31"></label>
     </div>
     <div class="ed-note"><input type="text" placeholder="Нотатка" value="${esc(ed.note)}" data-in="edNote" enterkeyhint="done" maxlength="200"></div>
@@ -786,6 +841,7 @@ function settingsSheet() {
       return `${sheetHead('Налаштування')}<div class="sheet-b">
       <div class="section-t">Дані</div>
       <div class="card">
+        <label class="row tap"><span class="ico" style="--c:var(--accent-soft)">👛</span><span class="mid"><div class="t1">Кілька рахунків</div><div class="t2">Готівка, картки, валюти, перекази</div></span><input type="checkbox" class="switch" data-in="multiAcc" ${multi() ? 'checked' : ''}></label>
         <button class="row" data-a="openCategories"><span class="ico" style="--c:var(--accent-soft)">🗂️</span><span class="mid"><div class="t1">Категорії</div><div class="t2">${catsOf('expense').length} витрат · ${catsOf('income').length} доходів</div></span>${ic('chevR')}</button>
         <button class="row" data-a="openImport"><span class="ico" style="--c:var(--accent-soft)">📥</span><span class="mid"><div class="t1">Імпорт з Monefy</div><div class="t2">CSV-файл з Monefy → Налаштування → Експорт</div></span>${ic('chevR')}</button>
       </div>
@@ -1078,6 +1134,12 @@ const actions = {
   catDelete: () => deleteCategory(),
 
   editBudget: (d) => openBudgetEditor(d.id),
+  statsShift: (d) => { ui.statsYear += +d.dir; render(); },
+  statsMonth: (d) => { ui.period = { kind: 'month', anchor: `${d.m}-01`, custom: null }; saveUi(); ui.tab = 'home'; render(); scrollTo(0, 0); },
+  statsCat: (d) => {
+    ui.period = { kind: 'year', anchor: `${ui.statsYear}-01-01`, custom: null };
+    ui.tab = 'ops'; ui.opsCat = d.cat; ui.opsSearch = ''; render(); scrollTo(0, 0);
+  },
   budgetShift: (d) => { ui.budgetAnchor = U.shiftAnchor('month', ui.budgetAnchor, +d.dir); render(); },
   bSave: async () => {
     const v = U.calcExpr(String(bEd.amount));
@@ -1124,6 +1186,11 @@ const inputs = {
   rate: (el) => {
     const v = U.calcExpr(el.value);
     if (v > 0) { state.settings.rates[el.dataset.cur] = v; state.settings.autoRates = false; saveSettings(); render(); refreshSheet(); }
+  },
+  multiAcc: async (el) => {
+    state.settings.multiAccount = el.checked;
+    await saveSettings();
+    refreshSheet(); render();
   },
   impWipe: (el) => { imp.wipe = el.checked; prepareImport(); refreshSheet(); },
   impDateOrder: (el) => {
@@ -1219,6 +1286,26 @@ document.addEventListener('visibilitychange', () => {
   lastToday = t;
   if (!sheets.length) render();
 });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
+
+// Автооновлення: на сайті лежить version.json; якщо версія новіша — перезавантажуємось
+// (лише коли не відкрито жодної шторки, і не частіше ніж раз на 5 хв, щоб не зациклитись).
+let lastUpdateCheck = 0;
+async function checkUpdate() {
+  if (location.protocol === 'file:' || !navigator.onLine || Date.now() - lastUpdateCheck < 60e3) return;
+  lastUpdateCheck = Date.now();
+  try {
+    const res = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+    const { version } = await res.json();
+    if (!version || version === APP_VERSION || sheets.length) return;
+    let last = 0;
+    try { last = +localStorage.getItem('hamanets-reload') || 0; } catch { }
+    if (Date.now() - last < 5 * 60e3) return;
+    try { localStorage.setItem('hamanets-reload', String(Date.now())); } catch { }
+    await (await navigator.serviceWorker?.getRegistration())?.update().catch(() => { });
+    location.reload();
+  } catch { /* офлайн або файлу ще немає */ }
+}
 
 // ---------- Старт ----------
 (async () => {
@@ -1236,6 +1323,7 @@ document.addEventListener('visibilitychange', () => {
   }
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('sw.js').catch(() => { });
+    checkUpdate();
   }
 })();
 

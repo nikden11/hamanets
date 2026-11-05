@@ -131,3 +131,10 @@ test('регресії з рев\'ю', () => {
   const r3 = buildImport(fx, { accounts: [usd], categories: [], txs: [] }, { baseCurrency: 'UAH', rates: { USD: 40 } });
   assert.equal(r3.txs[0].toAmount, 10000);
 });
+
+test('версії синхронні (app.js ↔ version.json)', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const app = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
+  const v = JSON.parse(await readFile(new URL('../version.json', import.meta.url), 'utf8')).version;
+  assert.equal(app.match(/APP_VERSION = '([^']+)'/)[1], v);
+});
