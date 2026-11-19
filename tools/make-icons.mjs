@@ -30,18 +30,21 @@ function png(size, pixel) {
 }
 
 const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
-const TOP = hex('#2fbf80'), BOT = hex('#178a5a');
-const SEGS = [ // кути в градусах від 12 години за годинниковою стрілкою
-  [0, 140, hex('#ffffff')], [146, 236, hex('#ffd25a')], [242, 300, hex('#ff6b6b')], [306, 354, hex('#9fe7c6')],
+// Знак із дизайн-системи «Чорнило» (Logos/app-icon.svg): розірване кільце на тлі brand.
+// Тло на весь квадрат — iOS сам заокруглює кути.
+const BG = hex('#1D3557');
+const SEGS = [ // кути в градусах від 12 години за годинниковою стрілкою (pathLength 100 → ×3.6)
+  [2 * 3.6, 73 * 3.6, hex('#F3F4F7')], // paper, 71%
+  [77 * 3.6, 98 * 3.6, hex('#D9A441')], // accent, 21%
 ];
+const R_IN = (288 - 64) / 1024, R_OUT = (288 + 64) / 1024;
 
 function sample(u, v) { // u,v у [0,1]
-  const bg = TOP.map((t, i) => t + (BOT[i] - t) * v);
   const dx = u - 0.5, dy = v - 0.5, r = Math.hypot(dx, dy);
-  if (r < 0.205 || r > 0.335) return bg;
+  if (r < R_IN || r > R_OUT) return BG;
   let a = (Math.atan2(dx, -dy) * 180) / Math.PI; if (a < 0) a += 360;
   const seg = SEGS.find(([s, e]) => a >= s && a <= e);
-  return seg ? seg[2] : bg;
+  return seg ? seg[2] : BG;
 }
 
 for (const size of [180, 192, 512]) {

@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.1.1';
 
 const { esc, fmtMoney } = U;
 const $ = (s, r = document) => r.querySelector(s);
