@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.2.1';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -42,6 +42,12 @@ const ICONS = {
   up: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
   arrowR: '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',
   bars: '<path d="M5.5 20V13M10 20V5M14.5 20v-10M19 20v-5"/>',
+  // заповнені варіанти для активної вкладки
+  pieF: '<path d="M11 3.6A8.5 8.5 0 1 0 20.4 13H11z" fill="currentColor"/><path d="M13.5 3.6a8.5 8.5 0 0 1 6.9 6.9h-6.9z" fill="currentColor"/>',
+  listF: '<path d="M9 6.5h11M9 12h11M9 17.5h11" stroke-width="2.4"/><circle cx="4.5" cy="6.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="4.5" cy="17.5" r="1.4" fill="currentColor" stroke="none"/>',
+  barsF: '<rect x="4" y="12" width="3.2" height="8.5" rx="1" fill="currentColor"/><rect x="8.4" y="4" width="3.2" height="16.5" rx="1" fill="currentColor"/><rect x="12.9" y="9" width="3.2" height="11.5" rx="1" fill="currentColor"/><rect x="17.4" y="14" width="3.2" height="6.5" rx="1" fill="currentColor"/>',
+  targetF: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5" fill="currentColor"/>',
+  cardF: '<rect x="1.5" y="4.5" width="21" height="15" rx="2.5" fill="currentColor"/><path d="M1.5 10h21" style="stroke:var(--card)"/>',
   refresh: '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>',
 };
 const ic = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
@@ -150,7 +156,8 @@ function applyTheme() {
 }
 
 function tabbar() {
-  const t = (id, icon, label) => `<button class="tab ${ui.tab === id ? 'on' : ''}" data-a="tab" data-id="${id}">${ic(icon)}<span>${label}</span></button>`;
+  // Активна вкладка — заповнена іконка + жирніший підпис (самого кольору в темній темі замало, аудит 2.1)
+  const t = (id, icon, label) => `<button class="tab ${ui.tab === id ? 'on' : ''}" data-a="tab" data-id="${id}" ${ui.tab === id ? 'aria-current="page"' : ''}>${ic(ui.tab === id ? icon + 'F' : icon)}<span>${label}</span></button>`;
   return `<nav class="tabbar"><div class="tabbar-in">
     ${t('home', 'pie', 'Огляд')}${t('ops', 'list', 'Операції')}${t('stats', 'bars', 'Статистика')}${t('budgets', 'target', 'Бюджети')}${multi() ? t('accounts', 'card', 'Рахунки') : ''}
   </div></nav>`;
@@ -566,10 +573,10 @@ function renderEditor() {
     </div>
     <label class="ed-note">${ic('note')}<input type="text" placeholder="Нотатка" aria-label="Нотатка" value="${esc(ed.note)}" data-in="edNote" enterkeyhint="done" maxlength="200"></label>
     <div class="keypad">
-      ${k('7', '7')}${k('8', '8')}${k('9', '9')}${k('÷', '÷', 'op')}
-      ${k('4', '4')}${k('5', '5')}${k('6', '6')}${k('×', '×', 'op')}
-      ${k('1', '1')}${k('2', '2')}${k('3', '3')}${k('−', '−', 'op')}
-      ${k('000', '000')}${k('0', '0')}${k(ic('back'), 'back', 'op')}${k('+', '+', 'op')}
+      ${k('1', '1')}${k('2', '2')}${k('3', '3')}${k(ic('back'), 'back', 'op')}
+      ${k('4', '4')}${k('5', '5')}${k('6', '6')}${k('−', '−', 'op')}
+      ${k('7', '7')}${k('8', '8')}${k('9', '9')}${k('+', '+', 'op')}
+      ${k('000', '000')}${k('0', '0')}${k('×', '×', 'op')}${k('÷', '÷', 'op')}
     </div>
     <button class="ok-btn" data-a="edOk">${ed.id ? `${ic('check')} Зберегти` : c ? `${ic('check')} Записати ${ed.type === 'expense' ? 'витрату' : 'дохід'}` : `Обрати категорію ${ic('arrowR')}`}</button>
   </div>`;
@@ -628,9 +635,8 @@ function renderCatStep() {
 async function saveEditor() {
   const v = edValue();
   if (!(v > 0)) {
-    $('#ed-amount')?.classList.add('shake');
+    $('#ed-amount')?.classList.add('shake'); // лише похитування, без тосту (DS Keypad)
     setTimeout(() => $('#ed-amount')?.classList.remove('shake'), 300);
-    toast('Введіть суму більше нуля');
     return;
   }
   if (!ed.categoryId || cat(ed.categoryId)?.type !== ed.type) {
@@ -1331,6 +1337,18 @@ const onInput = (e) => {
 };
 document.addEventListener('input', onInput);
 document.addEventListener('change', onInput);
+
+// Помітний відгук на натискання (зауваження Дениса Д2): клас .pressed тримається ще 150 мс після відпускання,
+// бо :active на швидкому тапі iPhone майже не видно, а вібрації в PWA на iOS немає.
+const PRESSABLE = '.keypad button, .ring-cat, .ring-center, .cat-tile, .big, .ok-btn, .btn, .chip, .tab, .row, .budget, .icon-btn, .period-label, .balance-bar, .seg button, .ed-types button, .icon-grid button, .color-grid button';
+document.addEventListener('pointerdown', (e) => {
+  const el = e.target.closest(PRESSABLE);
+  if (!el || el.disabled) return;
+  el.classList.add('pressed');
+  const release = () => setTimeout(() => el.classList.remove('pressed'), 150);
+  el.addEventListener('pointerup', release, { once: true });
+  el.addEventListener('pointercancel', release, { once: true });
+}, { passive: true });
 
 // Клавіатура (зручно на комп'ютері)
 document.addEventListener('keydown', (e) => {
