@@ -121,3 +121,44 @@ export function categoryOrder(cats, txs, { type, today }) {
   const score = (id) => (curN >= 5 ? cur.get(id) ?? 0 : (cur.get(id) ?? 0) * 3 + (past.get(id) ?? 0));
   return cats.map((c, i) => ({ c, i, s: score(c.id) })).sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.c);
 }
+
+// Розміщення кіл навколо кільця (дизайн 390×392, центр 195×196). values — суми сегментів за годинниковою
+// стрілкою від 12-ї години. Кола стоять на контурі «заокруглений прямокутник» (суперeліпс n=4, A×B)
+// навпроти середини свого сегмента; сусіди розсуваються вздовж контуру, щоб центри були не ближче за gap px.
+export function ringLayout(values, { cx = 195, cy = 196, ro = 84, a = 158, b = 146, n = 4, gap = 76 } = {}) {
+  const total = values.reduce((s, v) => s + v, 0);
+  if (!values.length || total <= 0) return [];
+  const rad = (d) => (d * Math.PI) / 180;
+  const pt = (r, d) => [cx + r * Math.sin(rad(d)), cy - r * Math.cos(rad(d))];
+  const rr = (d) => 1 / Math.pow(Math.pow(Math.abs(Math.sin(rad(d))) / a, n) + Math.pow(Math.abs(Math.cos(rad(d))) / b, n), 1 / n);
+  const S = [0];
+  let prev = pt(rr(0), 0);
+  for (let k = 1; k <= 720; k++) { const q = pt(rr(k / 2), k / 2); S.push(S[k - 1] + Math.hypot(q[0] - prev[0], q[1] - prev[1])); prev = q; }
+  const P = S[720];
+  const toLen = (d) => { const f = (((d % 360) + 360) % 360) * 2, k = Math.floor(f); return S[k] + (S[Math.min(k + 1, 720)] - S[k]) * (f - k); };
+  const toDeg = (len) => { let lo = 0, hi = 720; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (S[m] <= len) lo = m; else hi = m; } return (lo + (len - S[lo]) / ((S[hi] - S[lo]) || 1)) / 2; };
+  const mids = [];
+  let acc = 0;
+  for (const v of values) { mids.push(((acc + v / 2) / total) * 360); acc += v; }
+  // розсування вздовж контуру
+  const cnt = mids.length, g = Math.min(gap, P / cnt);
+  const idx = mids.map((_, i) => i).sort((i, j) => mids[i] - mids[j]);
+  const p = idx.map((i) => toLen(mids[i]));
+  for (let it = 0; it < 400 && cnt > 1; it++) {
+    let moved = false;
+    for (let k = 0; k < cnt; k++) {
+      const last = k === cnt - 1, d = (last ? p[0] + P : p[k + 1]) - p[k];
+      if (d < g - 0.01) { const s = (g - d) / 2; p[k] -= s; if (last) p[0] += s; else p[k + 1] += s; moved = true; }
+    }
+    if (!moved) break;
+  }
+  const pos = [];
+  idx.forEach((i, k) => { pos[i] = toDeg(((p[k] % P) + P) % P); });
+  return mids.map((m, i) => {
+    const [x, y] = pt(rr(pos[i]), pos[i]);
+    const p1 = pt(ro + 1, m), p2 = pt(ro + 12, m);
+    const dx = x - p2[0], dy = y - p2[1], dl = Math.hypot(dx, dy) || 1;
+    const p3 = [x - (dx / dl) * 29, y - (dy / dl) * 29];
+    return { x, y, up: y < cy - 70, line: [p1, p2, p3] };
+  });
+}

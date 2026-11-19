@@ -1,10 +1,10 @@
 // Гаманець — особистий облік витрат. Інтерфейс.
 import { state, load, put, remove, removeMany, putMany, commit, saveSettings, replaceAll, resetToDefaults, snapshot, sortAll } from './db.js';
 import * as U from './util.js';
-import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder } from './calc.js';
+import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.2.2';
+export const APP_VERSION = '1.2.3';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -107,6 +107,7 @@ function catColorIdx(c) {
   const col = String(c?.color ?? '').toUpperCase();
   const i = U.CAT_HEX.indexOf(col);
   if (i >= 0) return i;
+  if (col === '#9A5656') return 6; // старий cat-07 «цегла» → «шавлія» (аудит 2.2)
   const j = U.PALETTE.findIndex((x) => x.toUpperCase() === col);
   return j >= 0 ? j % U.CAT_HEX.length : -1;
 }
@@ -190,21 +191,15 @@ function currentSummary() {
 }
 
 // ---------- Огляд ----------
-// Клітинки навколо діаграми за годинниковою стрілкою (сітка 4×5, центр зайнятий діаграмою)
-const RING_POS = [[1, 1], [1, 2], [1, 3], [1, 4], [2, 4], [3, 4], [4, 4], [5, 4], [5, 3], [5, 2], [5, 1], [4, 1], [3, 1], [2, 1]];
-// Порядок заповнення, щоб при неповному наборі кільце було симетричним
-const RING_FILL = [0, 1, 2, 3, 7, 8, 9, 10, 5, 12, 4, 13, 6, 11];
-
-function ringSlots(n) {
-  const used = new Set(RING_FILL.slice(0, n));
-  return RING_POS.filter((_, i) => used.has(i));
-}
+// Кільце: на ньому лише категорії з витратами за період (до 13 + «Ще»), кола — по заокругленому прямокутнику
+// навколо діаграми (ringLayout у calc.js, координати в дизайн-сітці 390×392; x масштабується за шириною).
+const RING_MAX = 14;
 
 function donutSvg(segs, size = 120, stroke = 10) {
   const r = (size - stroke) / 2, C = 2 * Math.PI * r, total = segs.reduce((s, x) => s + x.value, 0);
   let out = `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" style="stroke:var(--idle)" stroke-width="${stroke}"/>`;
   if (total > 0) {
-    const gap = segs.length > 1 ? C * 0.01 : 0;
+    const gap = segs.length > 1 ? C * 0.02 : 0;
     let off = 0;
     for (const s of segs) {
       const len = (s.value / total) * C;
@@ -219,28 +214,28 @@ function donutSvg(segs, size = 120, stroke = 10) {
 
 function viewHome() {
   const s = currentSummary();
-  const cats = catsOf('expense');
-  const more = cats.length > RING_POS.length;
-  const shown = more ? cats.slice(0, RING_POS.length - 1) : cats;
-  const slots = ringSlots(shown.length + (more ? 1 : 0));
-  const cells = shown.map((c, i) => {
-    const amt = s.byCat.get(c.id)?.amount ?? 0;
-    const [r, col] = slots[i];
-    return `<button class="ring-cat ${amt ? 'on' : ''}" style="grid-area:${r}/${col};--c:${catColor(c)}" data-a="addTx" data-type="expense" data-cat="${c.id}" aria-label="Додати витрату: ${esc(c.name)}">
-      <span class="ring-ico">${catIco(c)}</span><span class="ring-name">${esc(c.name)}</span><span class="ring-amt num">${amt ? fmtMoney(amt, s.currency) : '—'}</span></button>`;
+  const spent = [...s.byCat.entries()].filter(([, v]) => v.type === 'expense' && v.amount > 0)
+    .sort((a, b) => b[1].amount - a[1].amount).map(([id, v]) => ({ c: cat(id) ?? NO_CAT, id, amount: v.amount }));
+  const items = spent.length > RING_MAX ? [...spent.slice(0, RING_MAX - 1),
+    { more: true, amount: spent.slice(RING_MAX - 1).reduce((t, x) => t + x.amount, 0) }] : spent;
+  const segs = items.map((x) => ({ value: x.amount, color: x.more ? 'var(--line-strong)' : catColor(x.c) }));
+  const L = ringLayout(items.map((x) => x.amount));
+  const X = (v) => `${((v / 390) * 100).toFixed(2)}%`;
+  const lines = L.map((l, i) => `<polyline points="${l.line.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}" style="stroke:${segs[i].color}"/>`).join('');
+  const cells = items.map((x, i) => {
+    const { x: cx, y, up } = L[i];
+    const pos = `left:${X(cx)};top:${y.toFixed(1)}px;--c:${segs[i].color}`;
+    const amt = `<span class="ring-amt num ${up ? 'up' : ''}">${fmtMoney(x.amount, s.currency)}</span>`;
+    return x.more
+      ? `<button class="ring-cat on" style="${pos}" data-a="addTx" data-type="expense" aria-label="Інші категорії, ${fmtMoney(x.amount, s.currency)}. Додати витрату"><span class="ring-ico">${catSvg('uncategorized')}</span>${amt}</button>`
+      : `<button class="ring-cat on" style="${pos}" data-a="addTx" data-type="expense" data-cat="${x.c.id}" aria-label="${esc(x.c.name)}, ${fmtMoney(x.amount, s.currency)}. Додати витрату"><span class="ring-ico">${catIco(x.c)}</span>${amt}</button>`;
   });
-  if (more) {
-    const [r, col] = slots[slots.length - 1];
-    cells.push(`<button class="ring-cat" style="grid-area:${r}/${col}" data-a="addTx" data-type="expense"><span class="ring-ico">${catSvg('uncategorized')}</span><span class="ring-name">Ще</span><span class="ring-amt">&nbsp;</span></button>`);
-  }
-  const segs = [...s.byCat.entries()].filter(([, v]) => v.type === 'expense')
-    .sort((a, b) => b[1].amount - a[1].amount).map(([id, v]) => ({ value: v.amount, color: catColor(cat(id) ?? NO_CAT) }));
 
   return `<header class="top">${headerTop()}${periodRow()}</header>
   <section class="ring" id="ring">
-    ${cells.join('')}
+    <svg class="ring-lines" viewBox="0 0 390 392" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
     <div class="ring-center" data-a="goOps" role="button" aria-label="Операції за період">
-      ${donutSvg(segs)}
+      ${donutSvg(segs, 168, 12)}
       <div class="donut-text">${s.expense || s.income ? `
         <div class="sub">ВИТРАТИ</div>
         <div class="big-sum num exp">${fmtMoney(-s.expense, s.currency)}</div>
@@ -249,6 +244,7 @@ function viewHome() {
         <div class="hint0">Додайте першу витрату</div>`}
       </div>
     </div>
+    ${cells.join('')}
   </section>
   <div class="big-actions">
     <button class="big minus" data-a="addTx" data-type="expense">${ic('minus')} Витрата</button>

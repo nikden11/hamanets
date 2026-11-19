@@ -158,3 +158,16 @@ test('порядок категорій за частотою', () => {
   // рівні — порядок з налаштувань
   assert.equal(ids(categoryOrder(cats, [], opts)), 'abc');
 });
+
+test('ringLayout: кола не накладаються і лишаються в межах', async () => {
+  const { ringLayout } = await import('../js/calc.js');
+  assert.deepEqual(ringLayout([]), []);
+  for (const vals of [[5920, 2470, 1480], [8420, 3280, 2360, 1900, 1150, 1120, 780], [8420, 3280, 2360, 1900, 1150, 1120, 780, 640, 450, 380, 260, 190, 120, 90]]) {
+    const L = ringLayout(vals);
+    assert.equal(L.length, vals.length);
+    for (let i = 0; i < L.length; i++) {
+      assert.ok(L[i].x >= 30 && L[i].x <= 360 && L[i].y >= 44 && L[i].y <= 348, `межі ${i}`);
+      for (let j = i + 1; j < L.length; j++) assert.ok(Math.hypot(L[i].x - L[j].x, L[i].y - L[j].y) > 64, `відстань ${i}-${j}`);
+    }
+  }
+});
