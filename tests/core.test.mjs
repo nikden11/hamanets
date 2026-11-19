@@ -25,6 +25,10 @@ test('періоди', () => {
 test('формат грошей', () => {
   assert.equal(fmtMoney(123456, 'UAH').replace(/\s/g, ' '), '1 234,56 ₴');
   assert.equal(fmtMoney(-500, 'USD').replace(/\s/g, ' '), '−5,00 $');
+  // дизайн-система: суми без копійок (округлення лише при показі)
+  assert.equal(fmtMoney(128550, 'UAH', { whole: true }).replace(/\s/g, ' '), '1 286 ₴');
+  assert.equal(fmtMoney(-49, 'UAH', { whole: true }).replace(/\s/g, ' '), '0 ₴');
+  assert.equal(fmtMoney(500000, 'UAH', { whole: true, sign: true }).replace(/\s/g, ' '), '+5 000 ₴');
 });
 
 test('конвертація і баланси', () => {

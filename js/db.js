@@ -1,7 +1,7 @@
 // Сховище в IndexedDB. Дані живуть лише на пристрої.
 // Усі дані тримаємо в пам'яті (`state`), у базу пишемо кожну зміну.
 
-import { uid, PALETTE, cleanCur, cleanColor, cleanIcon } from './util.js';
+import { uid, PALETTE, CAT_HEX, cleanCur, cleanColor, cleanIcon } from './util.js';
 
 const DB_NAME = 'hamanets';
 const VERSION = 1;
@@ -43,17 +43,19 @@ export const DEFAULT_SETTINGS = {
   theme: 'auto',
 };
 
+// Іконки — ключі лінійних іконок дизайн-системи (див. CAT_ICONS у app.js).
 const DEFAULT_EXPENSE = [
-  ['Продукти', '🛒'], ['Кафе', '🍽️'], ['Транспорт', '🚌'], ['Таксі', '🚕'], ['Авто', '🚗'], ['Дім', '🏠'],
-  ['Комуналка', '🧾'], ["Зв'язок", '📱'], ['Одяг', '👕'], ["Здоров'я", '💊'], ['Розваги', '🎬'], ['Спорт', '🏋️'],
-  ['Подарунки', '🎁'], ['Тварини', '🐾'],
+  ['Продукти', 'groceries'], ['Кафе', 'cafe'], ['Транспорт', 'transport'], ['Таксі', 'taxi'], ['Авто', 'car'], ['Дім', 'home'],
+  ['Комуналка', 'utilities'], ["Зв'язок", 'phone'], ['Одяг', 'clothes'], ["Здоров'я", 'health'], ['Розваги', 'leisure'], ['Спорт', 'sport'],
+  ['Подарунки', 'gifts'], ['Тварини', 'pets'],
 ];
-const DEFAULT_INCOME = [['Зарплата', '💼'], ['Депозити', '🏦'], ['Заощадження', '🐷'], ['Інше', '💰']];
+const DEFAULT_INCOME = [['Зарплата', 'salary'], ['Депозити', 'deposits'], ['Заощадження', 'savings'], ['Інше', 'coins']];
+const INCOME_COLORS = [7, 0, 9, 3];
 
 function seed() {
   const cats = [
-    ...DEFAULT_EXPENSE.map(([name, icon], i) => ({ id: uid(), name, icon, type: 'expense', color: PALETTE[i % PALETTE.length], order: i })),
-    ...DEFAULT_INCOME.map(([name, icon], i) => ({ id: uid(), name, icon, type: 'income', color: PALETTE[(i * 3 + 3) % PALETTE.length], order: i })),
+    ...DEFAULT_EXPENSE.map(([name, icon], i) => ({ id: uid(), name, icon, type: 'expense', color: CAT_HEX[i % CAT_HEX.length], order: i })),
+    ...DEFAULT_INCOME.map(([name, icon], i) => ({ id: uid(), name, icon, type: 'income', color: CAT_HEX[INCOME_COLORS[i]], order: i })),
   ];
   const accs = [
     { id: uid(), name: 'Готівка', icon: '👛', currency: 'UAH', initialBalance: 0, color: PALETTE[3], order: 0 },

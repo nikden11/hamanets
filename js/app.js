@@ -4,9 +4,10 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.1.1';
+export const APP_VERSION = '1.2.0';
 
-const { esc, fmtMoney } = U;
+const { esc } = U;
+const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
 const $ = (s, r = document) => r.querySelector(s);
 
 // ---------- Іконки ----------
@@ -22,20 +23,89 @@ const ICONS = {
   trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
   search: '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
   swap: '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
-  sliders: '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
-  pie: '<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
-  list: '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
-  target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  sliders: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+  pie: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5V12h8.5"/>',
+  list: '<path d="M9 6.5h11M9 12h11M9 17.5h11M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01"/>',
+  target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><path d="M12 12h.01"/>',
   card: '<rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>',
-  back: '<path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/>',
-  cal: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  back: '<path d="M9 5.5h10a1.5 1.5 0 0 1 1.5 1.5v10a1.5 1.5 0 0 1-1.5 1.5H9L3.5 12zM11.5 9.5l5 5M16.5 9.5l-5 5"/>',
+  cal: '<path d="M6 5.5h12a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7.5a2 2 0 0 1 2-2zM4 10h16M8.5 3.5v4M15.5 3.5v4"/>',
+  note: '<path d="M5 19h4L19 9l-4-4L5 15zM13 7l4 4"/>',
+  grid: '<path d="M5 4h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM15 4h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM5 14h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1zM15 14h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1z"/>',
+  import: '<path d="M12 4v10M8 10l4 4 4-4M5 16.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5"/>',
+  wallet: '<path d="M4 7.5h14.5a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18zM4 7.5l11.5-3v3M15.5 13.5h1.5"/>',
+  save: '<path d="M6 3.5h8l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4.5 19V5A1.5 1.5 0 0 1 6 3.5zM8 20.5v-6h8v6M8 3.5v4h5"/>',
+  restore: '<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v4h4"/>',
+  table: '<path d="M5.5 4.5h13a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1zM4.5 10h15M4.5 14.5h15M10 10v9.5"/>',
+  coins: '<circle cx="9" cy="9" r="5.5"/><path d="M14.4 9.9a5.5 5.5 0 1 1-4.5 4.5"/>',
   down: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
   up: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
   arrowR: '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',
-  bars: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  bars: '<path d="M5.5 20V13M10 20V5M14.5 20v-10M19 20v-5"/>',
   refresh: '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>',
 };
 const ic = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+
+// Лінійні іконки категорій з дизайн-системи «Чорнило» (24×24, штрих 1.75).
+const CAT_ICONS = {
+  groceries: 'M3 4h2l2.2 10.5a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2M8.2 20a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0zM15.7 20a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0z',
+  cafe: 'M4 9.5h12v4.5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM16 10.5h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v3M12 3.5v3',
+  transport: 'M8 3h8a3 3 0 0 1 3 3v9a3 3 0 0 1 -3 3h-8a3 3 0 0 1 -3 -3v-9a3 3 0 0 1 3 -3zM5 11h14M8 18v2.5M16 18v2.5M7.9 14.5a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0zM14.9 14.5a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0z',
+  taxi: 'M4 16v-3.5l1.8-4.6a2 2 0 0 1 1.9-1.3h8.6a2 2 0 0 1 1.9 1.3l1.8 4.6V16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 12.5h16M7 17v2M17 17v2M10 3.5h4v3h-4z',
+  car: 'M4 16v-3.5l1.8-4.6a2 2 0 0 1 1.9-1.3h8.6a2 2 0 0 1 1.9 1.3l1.8 4.6V16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 12.5h16M7 17v2M17 17v2M6.9 14.6a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0zM15.9 14.6a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0z',
+  home: 'M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z',
+  utilities: 'M6 3.5h12v17l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3zM9 8h6M9 11.5h6M9 15h3.5',
+  phone: 'M9.5 2.5h5a2.5 2.5 0 0 1 2.5 2.5v14a2.5 2.5 0 0 1 -2.5 2.5h-5a2.5 2.5 0 0 1 -2.5 -2.5v-14a2.5 2.5 0 0 1 2.5 -2.5zM11 18.5h2',
+  clothes: 'M8.5 3.5 4 6l1.8 4.2L8 9.4v11.1h8V9.4l2.2.8L20 6l-4.5-2.5a3.5 3.5 0 0 1-7 0z',
+  health: 'M7.5 3.5h9a4 4 0 0 1 4 4v9a4 4 0 0 1 -4 4h-9a4 4 0 0 1 -4 -4v-9a4 4 0 0 1 4 -4zM12 8v8M8 12h8',
+  leisure: 'M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0 -17 0zM10.5 9v6l5-3z',
+  sport: 'M6.5 7.5v9M17.5 7.5v9M3.5 10v4M20.5 10v4M6.5 12h11',
+  gifts: 'M5 9h14a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-14a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1zM5.5 13v7.5h13V13M12 9v11.5M12 9c-1.5-3-4.5-3.5-4.5-1.5S10.5 9 12 9zM12 9c1.5-3 4.5-3.5 4.5-1.5S13.5 9 12 9z',
+  pets: 'M12 13c-2.5 0-5 2.6-5 4.8 0 1.6 1.4 2.2 2.6 2.2 1 0 1.6-.5 2.4-.5s1.4.5 2.4.5c1.2 0 2.6-.6 2.6-2.2 0-2.2-2.5-4.8-5-4.8zM4.1 10.8a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0 -3.4 0zM7.7 6.6a1.8 1.8 0 1 0 3.6 0a1.8 1.8 0 1 0 -3.6 0zM12.7 6.6a1.8 1.8 0 1 0 3.6 0a1.8 1.8 0 1 0 -3.6 0zM16.5 10.8a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0 -3.4 0z',
+  salary: 'M5.5 7h13a2 2 0 0 1 2 2v8.5a2 2 0 0 1 -2 2h-13a2 2 0 0 1 -2 -2v-8.5a2 2 0 0 1 2 -2zM9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3.5 12.5h17',
+  deposits: 'M3.5 9.5 12 4.5l8.5 5zM5 20h14M6.5 10.5v7M10 10.5v7M14 10.5v7M17.5 10.5v7',
+  savings: 'M5.5 4.5h13a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-13a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2zM9 11.5a3 3 0 1 0 6 0a3 3 0 1 0 -6 0zM12 8.5v-1M12 15.5v-1M6.5 18.5V20M17.5 18.5V20',
+  coins: 'M3.5 9a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0zM14.4 9.9a5.5 5.5 0 1 1-4.5 4.5',
+  transfer: 'M4 8.5h14l-3.5-3.5M20 15.5H6l3.5 3.5',
+  uncategorized: 'M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0 -17 0zM7.4 12a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0zM11.4 12a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0zM15.4 12a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0z',
+};
+const PICK_ICONS = Object.keys(CAT_ICONS).filter((k) => k !== 'transfer');
+// Старі категорії зберігають емодзі — показуємо замість нього відповідну лінійну іконку (дані не змінюються).
+const EMOJI_KEY = {
+  '🛒': 'groceries', '🍔': 'cafe', '🍽️': 'cafe', '🍽': 'cafe', '☕': 'cafe', '🍺': 'cafe', '🍷': 'cafe', '🚌': 'transport', '🚇': 'transport',
+  '🚕': 'taxi', '🚗': 'car', '⛽': 'car', '🅿️': 'car', '🔧': 'car', '🏠': 'home', '🛠️': 'home', '🪴': 'home', '🧹': 'home', '💡': 'utilities',
+  '🧾': 'utilities', '📱': 'phone', '🌐': 'phone', '💻': 'phone', '📺': 'phone', '👕': 'clothes', '👟': 'clothes', '💊': 'health', '🩺': 'health',
+  '🦷': 'health', '🧑‍⚕️': 'health', '🎬': 'leisure', '🎮': 'leisure', '🎵': 'leisure', '🎨': 'leisure', '🎉': 'gifts', '🏋️': 'sport',
+  '⚽': 'sport', '🚲': 'sport', '🎁': 'gifts', '🧸': 'gifts', '🐾': 'pets', '🐶': 'pets', '🐱': 'pets', '💼': 'salary', '🏦': 'deposits',
+  '📈': 'deposits', '🐷': 'savings', '🛡️': 'savings', '💰': 'coins', '🪙': 'coins', '💸': 'coins', '💳': 'coins', '🤝': 'coins', '🔁': 'transfer',
+};
+const NAME_KEY = [
+  [/продукт|food|grocer|супермаркет|їжа|еда/i, 'groceries'], [/кафе|ресторан|eating|cafe|restaurant|кава|coffee/i, 'cafe'],
+  [/такс|taxi|uber|bolt/i, 'taxi'], [/транспорт|transport|метро|bus/i, 'transport'], [/авто|car|машин|бенз|fuel|пальне/i, 'car'],
+  [/дім|дом|house|home|квартир|оренд|rent/i, 'home'], [/комун|bills|utilit/i, 'utilities'], [/зв.?язок|связь|communic|телефон|phone|інтернет/i, 'phone'],
+  [/одяг|одежд|cloth|взутт/i, 'clothes'], [/здоров|health|аптек|лік|медиц/i, 'health'], [/розваг|развлеч|entertain|кіно|cinema/i, 'leisure'],
+  [/спорт|sport|gym|фітнес/i, 'sport'], [/подар|gift/i, 'gifts'], [/тварин|живот|pet/i, 'pets'], [/зарплат|salary|wage/i, 'salary'],
+  [/депозит|deposit|відсот/i, 'deposits'], [/заощадж|saving|накоп/i, 'savings'], [/кешбек|cashback|бонус/i, 'coins'],
+];
+function catKey(c) {
+  const i = c?.icon;
+  if (CAT_ICONS[i]) return i;
+  if (EMOJI_KEY[i]) return EMOJI_KEY[i];
+  const g = NAME_KEY.find(([re]) => re.test(c?.name ?? ''));
+  return g ? g[1] : c?.type === 'income' ? 'coins' : 'uncategorized';
+}
+const catSvg = (k) => `<svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><path d="${CAT_ICONS[k] ?? CAT_ICONS.uncategorized}"/></svg>`;
+const catIco = (c) => catSvg(catKey(c));
+// Індекс кольору DS (0…13): з hex дизайн-системи або зі старої палітри (за тим самим порядком).
+function catColorIdx(c) {
+  const col = String(c?.color ?? '').toUpperCase();
+  const i = U.CAT_HEX.indexOf(col);
+  if (i >= 0) return i;
+  const j = U.PALETTE.findIndex((x) => x.toUpperCase() === col);
+  return j >= 0 ? j % U.CAT_HEX.length : -1;
+}
+const catColor = (c) => { const i = catColorIdx(c); return i >= 0 ? `var(--cat-${String(i + 1).padStart(2, '0')})` : U.cleanColor(c?.color, 'var(--cat-09)'); };
+const MARK = '<svg class="mark" viewBox="176 176 672 672" aria-hidden="true"><circle cx="512" cy="512" r="288" pathLength="100" stroke-dasharray="71 29" stroke-dashoffset="-2" style="stroke:var(--mark)"/><circle cx="512" cy="512" r="288" pathLength="100" stroke-dasharray="21 79" stroke-dashoffset="-77" style="stroke:var(--gold)"/></svg>';
 
 // ---------- Стан інтерфейсу ----------
 const ui = {
@@ -63,7 +133,7 @@ const accounts = () => state.accounts.filter((a) => !a.archived);
 const range = () => U.periodRange(ui.period.kind, ui.period.anchor, ui.period.custom);
 // Режим кількох рахунків (готівка, картки, валюти). Вимкнено — один спільний облік, без переказів і вибору рахунку.
 const multi = () => !!state.settings.multiAccount;
-const NO_CAT = { name: 'Без категорії', icon: '❔', color: '#9aa0a6' };
+const NO_CAT = { name: 'Без категорії', icon: 'uncategorized', color: '#7A7468' };
 
 // ---------- Рендер ----------
 function render() {
@@ -86,21 +156,24 @@ function tabbar() {
   </div></nav>`;
 }
 
-function headerTop() {
+// Огляд: знак + «Гаманець» і налаштування; інші екрани — заголовок. Чип рахунку — лише в режимі кількох рахунків.
+function headerTop(title = '') {
   const a = acc(ui.accountId);
   const label = a ? `${a.icon} <span class="n">${esc(a.name)}</span>` : `<span class="n">Усі рахунки</span>`;
-  return `<div class="top-row">
-    ${multi() ? `<button class="acc-switch" data-a="pickAccount">${label}${ic('chevD')}</button>` : '<span class="top-title app-name">Гаманець</span>'}
-    <button class="icon-btn" data-a="settings" aria-label="Налаштування">${ic('sliders')}</button>
+  const left = multi() ? `<button class="acc-switch" data-a="pickAccount">${label}${ic('chevD')}</button>`
+    : title ? `<h1 class="top-title" style="margin:0">${title}</h1>` : `<span class="brand">${MARK}Гаманець</span>`;
+  return `<div class="top-row">${left}
+    ${title ? '' : `<button class="icon-btn" data-a="settings" aria-label="Налаштування">${ic('sliders')}</button>`}
   </div>`;
 }
 
 function periodRow() {
   const all = ui.period.kind === 'all' || ui.period.kind === 'custom';
+  const last = range().end >= U.today(); // стрілка в майбутнє вимкнена, якщо поточний період останній
   return `<div class="period-row">
     <button class="icon-btn" data-a="periodShift" data-dir="-1" ${all ? 'disabled' : ''} aria-label="Попередній">${ic('chevL')}</button>
-    <button class="period-label" data-a="pickPeriod">${esc(range().label)}</button>
-    <button class="icon-btn" data-a="periodShift" data-dir="1" ${all ? 'disabled' : ''} aria-label="Наступний">${ic('chevR')}</button>
+    <button class="period-label" data-a="pickPeriod">${esc(range().label)}${ic('chevD')}</button>
+    <button class="icon-btn" data-a="periodShift" data-dir="1" ${all || last ? 'disabled' : ''} aria-label="Наступний">${ic('chevR')}</button>
   </div>`;
 }
 
@@ -120,16 +193,16 @@ function ringSlots(n) {
   return RING_POS.filter((_, i) => used.has(i));
 }
 
-function donutSvg(segs, size = 200, stroke = 24) {
+function donutSvg(segs, size = 120, stroke = 10) {
   const r = (size - stroke) / 2, C = 2 * Math.PI * r, total = segs.reduce((s, x) => s + x.value, 0);
-  let out = `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--idle)" stroke-width="${stroke}"/>`;
+  let out = `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" style="stroke:var(--idle)" stroke-width="${stroke}"/>`;
   if (total > 0) {
-    const gap = segs.length > 1 ? 2 : 0;
+    const gap = segs.length > 1 ? C * 0.01 : 0;
     let off = 0;
     for (const s of segs) {
       const len = (s.value / total) * C;
       const vis = Math.max(len - gap, 0.5);
-      out += `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${stroke}"
+      out += `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" style="stroke:${s.color}" stroke-width="${stroke}"
         stroke-dasharray="${vis} ${C - vis}" stroke-dashoffset="${-off}" transform="rotate(-90 ${size / 2} ${size / 2})"/>`;
       off += len;
     }
@@ -146,24 +219,27 @@ function viewHome() {
   const cells = shown.map((c, i) => {
     const amt = s.byCat.get(c.id)?.amount ?? 0;
     const [r, col] = slots[i];
-    return `<button class="ring-cat ${amt ? 'on' : ''}" style="grid-area:${r}/${col};--c:${c.color}" data-a="addTx" data-type="expense" data-cat="${c.id}" aria-label="${esc(c.name)}">
-      <span class="ring-ico">${c.icon}</span><span class="ring-amt num">${amt ? fmtMoney(amt, s.currency, { short: true }) : esc(c.name)}</span></button>`;
+    return `<button class="ring-cat ${amt ? 'on' : ''}" style="grid-area:${r}/${col};--c:${catColor(c)}" data-a="addTx" data-type="expense" data-cat="${c.id}" aria-label="Додати витрату: ${esc(c.name)}">
+      <span class="ring-ico">${catIco(c)}</span><span class="ring-name">${esc(c.name)}</span><span class="ring-amt num">${amt ? fmtMoney(amt, s.currency) : '—'}</span></button>`;
   });
   if (more) {
     const [r, col] = slots[slots.length - 1];
-    cells.push(`<button class="ring-cat" style="grid-area:${r}/${col}" data-a="addTx" data-type="expense"><span class="ring-ico">•••</span><span class="ring-amt">Ще</span></button>`);
+    cells.push(`<button class="ring-cat" style="grid-area:${r}/${col}" data-a="addTx" data-type="expense"><span class="ring-ico">${catSvg('uncategorized')}</span><span class="ring-name">Ще</span><span class="ring-amt">&nbsp;</span></button>`);
   }
   const segs = [...s.byCat.entries()].filter(([, v]) => v.type === 'expense')
-    .sort((a, b) => b[1].amount - a[1].amount).map(([id, v]) => ({ value: v.amount, color: (cat(id) ?? NO_CAT).color }));
+    .sort((a, b) => b[1].amount - a[1].amount).map(([id, v]) => ({ value: v.amount, color: catColor(cat(id) ?? NO_CAT) }));
 
   return `<header class="top">${headerTop()}${periodRow()}</header>
   <section class="ring" id="ring">
     ${cells.join('')}
-    <div class="ring-center" data-a="goOps">
+    <div class="ring-center" data-a="goOps" role="button" aria-label="Операції за період">
       ${donutSvg(segs)}
-      <div class="donut-text">
-        <div class="inc num">${fmtMoney(s.income, s.currency)}</div>
-        <div class="exp num">${fmtMoney(s.expense, s.currency)}</div>
+      <div class="donut-text">${s.expense || s.income ? `
+        <div class="sub">ВИТРАТИ</div>
+        <div class="big-sum num exp">${fmtMoney(-s.expense, s.currency)}</div>
+        <div class="small-sum num inc">${fmtMoney(s.income, s.currency, { sign: true })}</div>` : `
+        <div class="big-sum num muted">${fmtMoney(0, s.currency)}</div>
+        <div class="hint0">Додайте першу витрату</div>`}
       </div>
     </div>
   </section>
@@ -183,10 +259,10 @@ function backupReminder() {
   if (state.txs.length < 20) return '';
   const days = last ? Math.round((U.parseISO(U.today()) - U.parseISO(last)) / 864e5) : null;
   if (days !== null && days < 30) return '';
-  return `<div class="card card-pad" style="display:flex;gap:12px;align-items:center">
-    <span style="font-size:26px">💾</span>
-    <span style="flex:1;font-size:14px">${days === null ? 'Ви ще не робили резервну копію.' : `Остання резервна копія — ${days} дн. тому.`}<br><span class="muted">Дані зберігаються лише на цьому телефоні.</span></span>
-    <button class="btn ghost" style="padding:10px 14px" data-a="exportJson">Зберегти</button></div>`;
+  return `<div class="card"><div class="row">
+    <span class="ico ui">${ic('save')}</span>
+    <span class="mid" style="white-space:normal"><div class="t1" style="white-space:normal">${days === null ? 'Ви ще не робили резервну копію' : `Остання копія — ${days} дн. тому`}</div><div class="t2" style="white-space:normal">Дані зберігаються лише на цьому телефоні.</div></span>
+    <button class="btn ghost" style="height:40px;padding:0 14px;font-size:15px" data-a="exportJson">Зберегти</button></div></div>`;
 }
 
 function breakdownCard(s, type, title) {
@@ -197,8 +273,8 @@ function breakdownCard(s, type, title) {
     ${rows.map(([id, v]) => {
       const c = cat(id) ?? NO_CAT;
       const pct = total ? (v.amount / total) * 100 : 0;
-      return `<button class="row" data-a="goOps" data-cat="${id}" style="--c:${c.color}">
-        <span class="ico">${c.icon}</span>
+      return `<button class="row" data-a="goOps" data-cat="${id}" style="--c:${catColor(c)}">
+        <span class="ico">${catIco(c)}</span>
         <span class="mid"><div class="t1">${esc(c.name)}</div><div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div></span>
         <span class="amt num">${fmtMoney(v.amount, s.currency)}<small>${pct.toFixed(pct < 10 ? 1 : 0)}% · ${v.count}</small></span>
       </button>`;
@@ -246,7 +322,7 @@ function viewStats() {
     <div><small>Витрати</small><b class="exp num">${fmtMoney(s.expense, cur, { short: true })}</b></div>
     <div><small>Залишилось</small><b class="num">${fmtMoney(s.net, cur, { short: true, sign: true })}</b></div>
   </div>
-  <div class="card stats3" style="padding-top:8px">
+  <div class="card stats3">
     <div><small>Витрати / міс.</small><b class="num">${fmtMoney(avgE, cur, { short: true })}</b></div>
     <div><small>Доходи / міс.</small><b class="num">${fmtMoney(avgI, cur, { short: true })}</b></div>
     <div><small>Заощаджено</small><b class="num">${s.income > 0 ? Math.round((s.net / s.income) * 100) + '%' : '—'}</b></div>
@@ -260,26 +336,26 @@ function viewStats() {
     ${rows.map(([id, v]) => {
       const c = cat(id) ?? NO_CAT;
       const pct = s.expense ? (v.amount / s.expense) * 100 : 0;
-      return `<button class="row" data-a="statsCat" data-cat="${id}" style="--c:${c.color}">
-        <span class="ico">${c.icon}</span>
+      return `<button class="row" data-a="statsCat" data-cat="${id}" style="--c:${catColor(c)}">
+        <span class="ico">${catIco(c)}</span>
         <span class="mid"><div class="t1">${esc(c.name)}</div><div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div></span>
         <span class="amt num">${fmtMoney(v.amount, cur, { short: true })}<small>${months ? fmtMoney(Math.round(v.amount / months), cur, { short: true }) : ''} · ${pct.toFixed(pct < 10 ? 1 : 0)}%</small></span>
       </button>`;
-    }).join('')}</div>` : `<div class="empty"><div class="e-ico">📊</div>За ${year} рік ще немає операцій</div>`}`;
+    }).join('')}</div>` : `<div class="empty"><div class="e-ico">${ic('bars')}</div>За ${year} рік ще немає операцій</div>`}`;
 }
 
 // ---------- Операції ----------
 function viewOps() {
   const s = currentSummary();
   const c = ui.opsCat ? cat(ui.opsCat) ?? NO_CAT : null;
-  return `<header class="top">${headerTop()}${periodRow()}</header>
+  return `<header class="top">${headerTop('Операції')}${periodRow()}</header>
   <div class="card stats3">
-    <div><small>Доходи</small><b class="inc num">${fmtMoney(s.income, s.currency)}</b></div>
-    <div><small>Витрати</small><b class="exp num">${fmtMoney(s.expense, s.currency)}</b></div>
-    <div><small>Різниця</small><b class="num">${fmtMoney(s.net, s.currency, { sign: true })}</b></div>
+    <div><small>Доходи</small><b class="inc num">${fmtMoney(s.income, s.currency, { sign: true })}</b></div>
+    <div><small>Витрати</small><b class="exp num">${fmtMoney(-s.expense, s.currency)}</b></div>
+    <div><small>Залишок</small><b class="num">${fmtMoney(s.net, s.currency, { sign: true })}</b></div>
   </div>
   <label class="search">${ic('search')}<input type="search" placeholder="Пошук за нотаткою чи категорією" value="${esc(ui.opsSearch)}" data-in="opsSearch" enterkeyhint="search"></label>
-  ${c ? `<div class="chips" style="padding-top:8px"><button class="chip" data-a="clearOpsCat">${c.icon} ${esc(c.name)} ${ic('x')}</button></div>` : ''}
+  ${c ? `<div class="chips" style="padding-top:8px"><button class="chip" data-a="clearOpsCat" style="--c:${catColor(c)};padding-left:14px"><span class="dot">${catIco(c)}</span>${esc(c.name)} ${ic('x')}</button></div>` : ''}
   <div id="ops-list">${opsList(s)}</div>`;
 }
 
@@ -289,7 +365,7 @@ function opsList(s = currentSummary()) {
   if (ui.opsCat) list = list.filter((t) => t.categoryId === ui.opsCat);
   if (q) list = list.filter((t) => `${t.note ?? ''} ${(cat(t.categoryId) ?? NO_CAT).name} ${acc(t.accountId)?.name ?? ''}`.toLowerCase().includes(q));
   if (!list.length) {
-    return `<div class="empty"><div class="e-ico">🧾</div>${state.txs.length ? 'Немає операцій за цей період' : 'Ще немає жодної операції.<br>Додайте першу кнопкою «Витрата» на головному екрані або імпортуйте історію з Monefy в налаштуваннях.'}</div>`;
+    return `<div class="empty"><div class="e-ico">${ic('list')}</div>${state.txs.length ? 'Немає операцій за цей період' : 'Ще немає жодної операції.<br>Додайте першу кнопкою «Витрата» на головному екрані або імпортуйте історію з Monefy в налаштуваннях.'}</div>`;
   }
   const byDay = new Map();
   for (const t of list) { if (!byDay.has(t.date)) byDay.set(t.date, []); byDay.get(t.date).push(t); }
@@ -315,15 +391,15 @@ function txRow(t, showAcc) {
     const inc = ui.accountId && t.toAccountId === ui.accountId;
     const amount = inc ? t.toAmount ?? t.amount : t.amount;
     const cur = inc ? to?.currency : a?.currency;
-    return `<button class="row" data-a="editTx" data-id="${t.id}" style="--c:var(--accent-soft)">
-      <span class="ico">🔁</span>
+    return `<button class="row" data-a="editTx" data-id="${t.id}">
+      <span class="ico ui">${catSvg('transfer')}</span>
       <span class="mid"><div class="t1">${esc(a?.name ?? '?')} → ${esc(to?.name ?? '?')}</div><div class="t2">${esc(t.note || 'Переказ')}</div></span>
       <span class="amt num muted">${fmtMoney(amount, cur)}</span></button>`;
   }
   const c = cat(t.categoryId) ?? NO_CAT;
   const sub = [t.note, showAcc ? a?.name : null].filter(Boolean).map(esc).join(' · ');
-  return `<button class="row" data-a="editTx" data-id="${t.id}" style="--c:${c.color}">
-    <span class="ico">${c.icon}</span>
+  return `<button class="row" data-a="editTx" data-id="${t.id}" style="--c:${catColor(c)}">
+    <span class="ico">${catIco(c)}</span>
     <span class="mid"><div class="t1">${esc(c.name)}</div>${sub ? `<div class="t2">${sub}</div>` : ''}</span>
     <span class="amt num ${t.type === 'expense' ? 'exp' : 'inc'}">${t.type === 'expense' ? '−' : '+'}${fmtMoney(t.amount, a?.currency ?? base())}</span></button>`;
 }
@@ -339,16 +415,17 @@ function viewBudgets() {
   const cur = base();
 
   const body = items.length ? `<div class="card">${items.map((b) => {
-    const c = b.categoryId ? cat(b.categoryId) ?? NO_CAT : { name: 'Загальний бюджет', icon: '🎯', color: 'var(--accent-soft)' };
+    const c = b.categoryId ? cat(b.categoryId) ?? NO_CAT : { name: 'Загальний бюджет', total: true };
     const pct = Math.min(b.ratio, 1) * 100;
-    const color = b.ratio > 1 ? 'var(--exp)' : b.ratio > 0.85 ? 'var(--warn)' : 'var(--inc)';
+    const over = b.ratio > 1;
+    const color = over ? 'var(--exp)' : c.total ? 'var(--accent)' : catColor(c);
     const perDay = isCur && b.left > 0 ? ` · ≈${fmtMoney(Math.floor(b.left / daysLeft), cur, { short: true })}/день` : '';
-    return `<button class="budget" style="display:block;width:100%;text-align:left;--c:${c.color}" data-a="editBudget" data-id="${b.id}">
-      <div class="top-l"><span class="ico">${c.icon}</span><span class="nm">${esc(c.name)}</span><span class="num"><b>${fmtMoney(b.spent, cur, { short: true })}</b> <span class="muted">/ ${fmtMoney(b.amount, cur, { short: true })}</span></span></div>
+    return `<button class="budget ${over ? 'over-row' : ''}" style="display:block;width:100%;text-align:left;--c:${c.total ? 'var(--accent)' : catColor(c)}" data-a="editBudget" data-id="${b.id}">
+      <div class="top-l">${c.total ? `<span class="ico total">${ic('target')}</span>` : `<span class="ico">${catIco(c)}</span>`}<span class="nm">${esc(c.name)}</span><span class="num">${fmtMoney(b.spent, cur).replace(/\s?[^\d\s−+]+$/, '')} з ${fmtMoney(b.amount, cur)}</span></div>
       <div class="bar"><i style="width:${pct}%;background:${color}"></i></div>
       <div class="meta"><span>${Math.round(b.ratio * 100)}%</span><span class="${b.left < 0 ? 'over' : ''}">${b.left < 0 ? `Перевищено на ${fmtMoney(-b.left, cur)}` : `Залишилось ${fmtMoney(b.left, cur)}${perDay}`}</span></div>
     </button>`;
-  }).join('')}</div>` : `<div class="empty"><div class="e-ico">🎯</div>Бюджетів ще немає.<br>Задайте місячний ліміт на категорію або загальний — і стежте, скільки ще можна витратити.</div>`;
+  }).join('')}</div>` : `<div class="empty"><div class="e-ico">${ic('target')}</div>Бюджетів ще немає.<br>Задайте місячний ліміт на категорію або загальний — і стежте, скільки ще можна витратити.</div>`;
 
   return `<header class="top"><div class="top-row"><span class="top-title">Бюджети</span>
     <button class="icon-btn" data-a="editBudget" aria-label="Додати бюджет">${ic('plus')}</button></div>
@@ -470,6 +547,7 @@ function renderEditor() {
   const k = (label, key, cls = '') => `<button class="${cls}" data-a="key" data-k="${key}">${label}</button>`;
   return `<div class="ed ${ed.type}">
     <div class="ed-top">
+      <div class="grabber"></div>
       <div class="sheet-h">
         <button class="icon-btn" data-a="closeSheet" aria-label="Закрити">${ic('x')}</button>
         <div class="ed-types">
@@ -481,25 +559,29 @@ function renderEditor() {
       <div class="ed-amount" id="ed-amount">${edAmountHtml(hasOp, v, a)}</div>
     </div>
     <div class="ed-chips">
-      <button class="chip ed-cat-chip" data-a="edPickCat" style="${c ? `background:${c.color};color:#fff` : ''}">${c ? `${c.icon} ${esc(c.name)}` : 'Категорія…'}</button>
+      ${c ? `<button class="chip ed-cat-chip" data-a="edPickCat" style="--c:${catColor(c)};padding-left:14px"><span class="dot">${catIco(c)}</span>${esc(c.name)}${ic('chevD')}</button>`
+    : `<button class="chip ed-cat-chip" data-a="edPickCat">Категорія${ic('chevD')}</button>`}
       ${multi() ? `<button class="chip" data-a="edPickAcc">${a.icon} ${esc(a.name)}</button>` : ''}
       <label class="chip">${ic('cal')} ${rel ?? U.fmtDate(ed.date)}<input type="date" value="${ed.date}" data-in="edDate" max="2100-12-31"></label>
     </div>
-    <div class="ed-note"><input type="text" placeholder="Нотатка" value="${esc(ed.note)}" data-in="edNote" enterkeyhint="done" maxlength="200"></div>
+    <label class="ed-note">${ic('note')}<input type="text" placeholder="Нотатка" aria-label="Нотатка" value="${esc(ed.note)}" data-in="edNote" enterkeyhint="done" maxlength="200"></label>
     <div class="keypad">
       ${k('7', '7')}${k('8', '8')}${k('9', '9')}${k('÷', '÷', 'op')}
       ${k('4', '4')}${k('5', '5')}${k('6', '6')}${k('×', '×', 'op')}
       ${k('1', '1')}${k('2', '2')}${k('3', '3')}${k('−', '−', 'op')}
-      ${k(',', ',')}${k('0', '0')}${k(ic('back'), 'back', 'op')}${k('+', '+', 'op')}
+      ${k('000', '000')}${k('0', '0')}${k(ic('back'), 'back', 'op')}${k('+', '+', 'op')}
     </div>
-    <button class="ok-btn" data-a="edOk">${c || ed.id ? `${ic('check')} Зберегти` : `Обрати категорію ${ic('arrowR')}`}</button>
+    <button class="ok-btn" data-a="edOk">${ed.id ? `${ic('check')} Зберегти` : c ? `${ic('check')} Записати ${ed.type === 'expense' ? 'витрату' : 'дохід'}` : `Обрати категорію ${ic('arrowR')}`}</button>
   </div>`;
 }
 
 function edAmountHtml(hasOp, v, a) {
   return `<div class="expr num">${hasOp ? esc(ed.expr) + ' =' : ''}</div>
-    <div class="val num">${Number.isFinite(v) ? fmtMoney(U.toMinor(v), a.currency) : fmtMoney(0, a.currency)}</div>`;
+    <div class="val num">${Number.isFinite(v) ? edMoney(U.toMinor(v), a.currency) : fmtMoney(0, a.currency)}</div>`;
 }
+
+// У редакторі копійки показуємо лише якщо вони справді є (напр. при редагуванні імпортованої операції).
+const edMoney = (m, cur) => (m % 100 ? U.fmtMoney(m, cur) : fmtMoney(m, cur));
 
 function updateEdAmount() {
   const el = $('#ed-amount');
@@ -516,6 +598,10 @@ function edKey(k) {
   else if (ops.includes(k)) {
     if (!e) return;
     e = ops.includes(e.slice(-1)) || e.endsWith(',') ? e.slice(0, -1) + k : e + k;
+  } else if (k === '000') {
+    const last = e.split(/[+−×÷]/).pop();
+    if (last === '' || last === '0' || last.includes(',') || last.length + 3 > 10) return;
+    e += '000';
   } else if (k === ',') {
     const last = e.split(/[+−×÷]/).pop();
     if (last.includes(',')) return;
@@ -534,7 +620,7 @@ function renderCatStep() {
   const cats = catsOf(ed.type);
   return `${sheetHead(ed.type === 'expense' ? 'Категорія витрати' : 'Категорія доходу')}
   <div class="sheet-b"><div class="cat-grid">
-    ${cats.map((c) => `<button class="cat-tile ${c.id === ed.categoryId ? 'sel' : ''}" style="--c:${c.color}" data-a="edCat" data-id="${c.id}"><span class="ico">${c.icon}</span><span>${esc(c.name)}</span></button>`).join('')}
+    ${cats.map((c) => `<button class="cat-tile ${c.id === ed.categoryId ? 'sel' : ''}" style="--c:${catColor(c)}" data-a="edCat" data-id="${c.id}"><span class="ico">${catIco(c)}</span><span>${esc(c.name)}</span></button>`).join('')}
     <button class="cat-tile add" data-a="editCategory" data-type="${ed.type}"><span class="ico">${ic('plus')}</span><span>Нова</span></button>
   </div></div>`;
 }
@@ -561,7 +647,7 @@ async function saveEditor() {
   const isNew = !ed.id;
   closeSheet();
   render();
-  toast(`${c.icon} ${c.name}: ${t.type === 'expense' ? '−' : '+'}${fmtMoney(t.amount, acc(t.accountId).currency)}${isNew ? '' : ' · збережено'}`);
+  toast(`${c.name}: ${t.type === 'expense' ? '−' : '+'}${edMoney(t.amount, acc(t.accountId).currency)}${isNew ? '' : ' · збережено'}`);
   persistStorage();
 }
 
@@ -658,7 +744,7 @@ async function saveTransfer() {
   await put('txs', rec);
   closeSheet();
   render();
-  toast(`🔁 ${f.name} → ${t.name}: ${fmtMoney(rec.amount, f.currency)}`);
+  toast(`${f.name} → ${t.name}: ${fmtMoney(rec.amount, f.currency)}`);
 }
 
 // ---------- Рахунок: редагування ----------
@@ -721,7 +807,8 @@ function ensureRate(cur) {
 let catEd = null;
 function openCategoryEditor({ id, type = 'expense' } = {}) {
   const c = id ? cat(id) : null;
-  catEd = c ? { ...c } : { id: null, name: '', icon: type === 'income' ? '💰' : '📦', type, color: U.PALETTE[catsOf(type).length % U.PALETTE.length] };
+  catEd = c ? { ...c, icon: catKey(c), color: U.CAT_HEX[Math.max(catColorIdx(c), 0)] }
+    : { id: null, name: '', icon: type === 'income' ? 'coins' : 'uncategorized', type, color: U.CAT_HEX[catsOf(type).length % U.CAT_HEX.length] };
   openSheet({ render: renderCatEditor, onClose: () => { catEd = null; } });
 }
 
@@ -731,16 +818,15 @@ function renderCatEditor() {
   const others = state.categories.filter((c) => c.type === e.type && c.id !== e.id);
   return `${sheetHead(e.id ? 'Категорія' : 'Нова категорія')}
   <div class="sheet-b"><div class="form">
-    <div style="display:flex;justify-content:center"><span class="cat-tile" style="--c:${e.color}"><span class="ico" style="width:72px;height:72px;font-size:36px">${e.icon}</span></span></div>
+    <div style="display:flex;justify-content:center"><span class="cat-tile" style="--c:${catColor(e)}"><span class="ico" style="width:72px;height:72px">${catIco(e)}</span></span></div>
     ${e.id ? '' : `<div class="seg" style="margin:0"><button class="${e.type === 'expense' ? 'on' : ''}" data-a="catType" data-v="expense">Витрата</button><button class="${e.type === 'income' ? 'on' : ''}" data-a="catType" data-v="income">Дохід</button></div>`}
     <div class="field"><label>Назва</label><input type="text" data-in="catName" value="${esc(e.name)}" placeholder="Напр. Кава" maxlength="30"></div>
-    <div class="field"><label>Іконка <span style="font-weight:400">(або впишіть будь-який емодзі)</span></label>
-      <input type="text" data-in="catIcon" value="${esc(e.icon)}" maxlength="8" style="margin-bottom:8px;width:90px;text-align:center;font-size:22px;padding:6px">
-      <div class="emoji-grid">${[...new Set(U.EMOJIS)].map((x) => `<button class="${x === e.icon ? 'sel' : ''}" data-a="catIconPick" data-v="${x}">${x}</button>`).join('')}</div></div>
-    <div class="field"><label>Колір</label><div class="color-grid">${U.PALETTE.map((c) => `<button class="${c === e.color ? 'sel' : ''}" style="--c:${c}" data-a="catColor" data-v="${c}" aria-label="${c}"></button>`).join('')}</div></div>
+    <div class="field"><label>Іконка</label>
+      <div class="icon-grid">${PICK_ICONS.map((k) => `<button class="${k === catKey(e) ? 'sel' : ''}" data-a="catIconPick" data-v="${k}" aria-label="${k}">${catSvg(k)}</button>`).join('')}</div></div>
+    <div class="field"><label>Колір</label><div class="color-grid">${U.CAT_HEX.map((h, i) => `<button class="${i === catColorIdx(e) ? 'sel' : ''}" style="--c:var(--cat-${String(i + 1).padStart(2, '0')})" data-a="catColor" data-v="${h}" aria-label="Колір ${i + 1}"></button>`).join('')}</div></div>
     <button class="btn block" data-a="catSave">${ic('check')} Зберегти</button>
     ${e.id ? `<div class="field" style="margin-top:8px"><label>Видалення${used ? ` · ${used} операцій` : ''}</label>
-      ${used && others.length ? `<select id="cat-move">${others.map((c) => `<option value="${c.id}">Перенести операції в: ${c.icon} ${esc(c.name)}</option>`).join('')}<option value="">Видалити операції разом із категорією</option></select>` : ''}
+      ${used && others.length ? `<select id="cat-move">${others.map((c) => `<option value="${c.id}">Перенести операції в: ${esc(c.name)}</option>`).join('')}<option value="">Видалити операції разом із категорією</option></select>` : ''}
       <button class="btn block danger" style="margin-top:8px" data-a="catDelete">${ic('trash')} Видалити категорію</button></div>` : ''}
   </div></div>`;
 }
@@ -787,12 +873,12 @@ function categoriesSheet() {
       const list = state.categories.filter((c) => c.type === ui.catTab);
       return `${sheetHead('Категорії', `<button class="icon-btn" data-a="editCategory" data-type="${ui.catTab}" aria-label="Додати">${ic('plus')}</button>`)}
       <div class="seg"><button class="${ui.catTab === 'expense' ? 'on' : ''}" data-a="catTab" data-v="expense">Витрати</button><button class="${ui.catTab === 'income' ? 'on' : ''}" data-a="catTab" data-v="income">Доходи</button></div>
-      <div class="sheet-b"><div class="card">${list.map((c, i) => `<div class="row" style="--c:${c.color}">
-        <span class="ico">${c.icon}</span><button class="mid" style="text-align:left" data-a="editCategory" data-id="${c.id}"><div class="t1">${esc(c.name)}</div></button>
+      <div class="sheet-b"><div class="card">${list.map((c, i) => `<div class="row" style="--c:${catColor(c)}">
+        <span class="ico">${catIco(c)}</span><button class="mid" style="text-align:left" data-a="editCategory" data-id="${c.id}"><div class="t1">${esc(c.name)}</div></button>
         <button class="icon-btn" data-a="catMove" data-id="${c.id}" data-dir="-1" ${i === 0 ? 'disabled style="opacity:.25"' : ''} aria-label="Вгору">${ic('chevU')}</button>
         <button class="icon-btn" data-a="catMove" data-id="${c.id}" data-dir="1" ${i === list.length - 1 ? 'disabled style="opacity:.25"' : ''} aria-label="Вниз">${ic('chevD')}</button>
       </div>`).join('')}</div>
-      <p class="hint" style="padding:0 20px">${ui.catTab === 'expense' ? 'Перші 14 категорій показуються навколо діаграми на головному екрані (решта — через «Ще»).' : ''} Стрілками змінюється порядок.</p></div>`;
+      <p class="hint" style="padding:0 20px">${ui.catTab === 'expense' ? 'Перші 14 стоять навколо кільця на «Огляді» (решта — через «Ще»). Дотик до кола — швидко додати витрату.' : ''} Стрілками змінюється порядок.</p></div>`;
     },
   });
 }
@@ -821,7 +907,7 @@ function openBudgetEditor(id) {
     render: () => {
       const options = b ? [b.categoryId ? cat(b.categoryId) ?? NO_CAT : { id: '', name: 'Загальний бюджет', icon: '🎯' }] : free;
       return `${sheetHead(b ? 'Бюджет' : 'Новий бюджет')}<div class="sheet-b"><div class="form">
-        <div class="field"><label>Категорія</label><select data-in="bCat" ${b ? 'disabled' : ''}>${options.map((c) => `<option value="${c.id ?? ''}" ${(c.id ?? '') === bEd.categoryId ? 'selected' : ''}>${c.icon} ${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>Категорія</label><select data-in="bCat" ${b ? 'disabled' : ''}>${options.map((c) => `<option value="${c.id ?? ''}" ${(c.id ?? '') === bEd.categoryId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></div>
         <div class="field"><label>Ліміт на місяць, ${base()}</label><input inputmode="decimal" data-in="bAmount" value="${bEd.amount === '' ? '' : String(bEd.amount).replace('.', ',')}" placeholder="0"></div>
         <button class="btn block" data-a="bSave">${ic('check')} Зберегти</button>
         ${b ? `<button class="btn block danger" data-a="bDelete">${ic('trash')} Видалити бюджет</button>` : ''}
@@ -841,9 +927,9 @@ function settingsSheet() {
       return `${sheetHead('Налаштування')}<div class="sheet-b">
       <div class="section-t">Дані</div>
       <div class="card">
-        <label class="row tap"><span class="ico" style="--c:var(--accent-soft)">👛</span><span class="mid"><div class="t1">Кілька рахунків</div><div class="t2">Готівка, картки, валюти, перекази</div></span><input type="checkbox" class="switch" data-in="multiAcc" ${multi() ? 'checked' : ''}></label>
-        <button class="row" data-a="openCategories"><span class="ico" style="--c:var(--accent-soft)">🗂️</span><span class="mid"><div class="t1">Категорії</div><div class="t2">${catsOf('expense').length} витрат · ${catsOf('income').length} доходів</div></span>${ic('chevR')}</button>
-        <button class="row" data-a="openImport"><span class="ico" style="--c:var(--accent-soft)">📥</span><span class="mid"><div class="t1">Імпорт з Monefy</div><div class="t2">CSV-файл з Monefy → Налаштування → Експорт</div></span>${ic('chevR')}</button>
+        <label class="row tap"><span class="ico ui">${ic('wallet')}</span><span class="mid"><div class="t1">Кілька рахунків</div><div class="t2">Готівка, картки, валюти, перекази</div></span><input type="checkbox" class="switch" data-in="multiAcc" ${multi() ? 'checked' : ''}></label>
+        <button class="row" data-a="openCategories"><span class="ico ui">${ic('grid')}</span><span class="mid"><div class="t1">Категорії</div><div class="t2">${catsOf('expense').length} витрат · ${catsOf('income').length} доходів</div></span>${ic('chevR')}</button>
+        <button class="row" data-a="openImport"><span class="ico ui">${ic('import')}</span><span class="mid"><div class="t1">Імпорт з Monefy</div><div class="t2">CSV-файл з Monefy → Налаштування → Експорт</div></span>${ic('chevR')}</button>
       </div>
       <div class="section-t">Валюти</div>
       <div class="card"><div class="form" style="padding:14px 16px">
@@ -855,15 +941,15 @@ function settingsSheet() {
       </div></div>
       <div class="section-t">Резервна копія</div>
       <div class="card">
-        <button class="row" data-a="exportJson"><span class="ico" style="--c:var(--inc-soft)">💾</span><span class="mid"><div class="t1">Зберегти резервну копію</div><div class="t2">Усі дані в один JSON-файл</div></span>${ic('down')}</button>
-        <label class="row tap"><span class="ico" style="--c:var(--inc-soft)">♻️</span><span class="mid"><div class="t1">Відновити з копії</div><div class="t2">Замінить поточні дані</div></span>${ic('up')}<input type="file" accept=".json,application/json" data-in="restoreJson" hidden></label>
-        <button class="row" data-a="exportCsv"><span class="ico" style="--c:var(--inc-soft)">📊</span><span class="mid"><div class="t1">Експорт у CSV</div><div class="t2">Для Excel; формат як у Monefy</div></span>${ic('down')}</button>
+        <button class="row" data-a="exportJson"><span class="ico ui">${ic('save')}</span><span class="mid"><div class="t1">Зберегти резервну копію</div><div class="t2">Усі дані в один JSON-файл</div></span>${ic('down')}</button>
+        <label class="row tap"><span class="ico ui">${ic('restore')}</span><span class="mid"><div class="t1">Відновити з копії</div><div class="t2">Замінить поточні дані</div></span>${ic('up')}<input type="file" accept=".json,application/json" data-in="restoreJson" hidden></label>
+        <button class="row" data-a="exportCsv"><span class="ico ui">${ic('table')}</span><span class="mid"><div class="t1">Експорт у CSV</div><div class="t2">Для Excel; формат як у Monefy</div></span>${ic('down')}</button>
       </div>
       <p class="hint" style="padding:0 20px">Дані зберігаються тільки на цьому телефоні. Робіть резервну копію раз на тиждень-місяць (наприклад, у Файли → iCloud).</p>
       <div class="section-t">Вигляд</div>
       <div class="seg">${[['auto', 'Авто'], ['light', 'Світла'], ['dark', 'Темна']].map(([k, l]) => `<button class="${s.theme === k ? 'on' : ''}" data-a="theme" data-v="${k}">${l}</button>`).join('')}</div>
       <div class="section-t">Небезпечна зона</div>
-      <div class="card"><button class="row" data-a="wipe"><span class="ico" style="--c:var(--exp-soft)">🗑️</span><span class="mid"><div class="t1 exp">Стерти всі дані</div><div class="t2">Повернути стандартні категорії й рахунки</div></span></button></div>
+      <div class="card"><button class="row" data-a="wipe"><span class="ico ui danger">${ic('trash')}</span><span class="mid"><div class="t1 exp">Стерти всі дані</div><div class="t2">Повернути стандартні категорії й рахунки</div></span></button></div>
       <p class="hint" style="text-align:center;padding:16px">Гаманець ${APP_VERSION} · ${state.txs.length} операцій</p>
       </div>`;
     },
@@ -943,7 +1029,7 @@ function renderImport() {
       <div><b>${res.categories.length}</b><small>нових категорій</small></div>
     </div>
     ${res.accounts.length ? `<div class="hint">Рахунки: ${res.accounts.map((a) => `${a.icon} ${esc(a.name)} (${a.currency})`).join(', ')}</div>` : ''}
-    ${res.categories.length ? `<div class="hint">Категорії: ${res.categories.map((c) => `${c.icon} ${esc(c.name)}`).join(', ')}</div>` : ''}
+    ${res.categories.length ? `<div class="hint">Категорії: ${res.categories.map((c) => esc(c.name)).join(', ')}</div>` : ''}
     ${st.initial ? `<div class="hint">Початкових балансів: ${st.initial}</div>` : ''}
     ${errors.length ? `<div class="errs">Пропущено рядків з помилками: ${errors.length}<br>${errors.slice(0, 8).map(esc).join('<br>')}</div>` : ''}
     ${imp.dateAmbiguous || imp.dateOrder === 'mdy' ? `<div class="field"><label>Формат дат у файлі (не вдалося визначити напевно)</label>
@@ -1312,7 +1398,7 @@ async function checkUpdate() {
   try {
     await load();
   } catch (err) {
-    $('#app').innerHTML = `<div class="empty"><div class="e-ico">⚠️</div>Не вдалося відкрити сховище даних.<br><small>${esc(err?.message ?? err)}</small></div>`;
+    $('#app').innerHTML = `<div class="empty">Не вдалося відкрити сховище даних.<br><small>${esc(err?.message ?? err)}</small></div>`;
     return;
   }
   render();

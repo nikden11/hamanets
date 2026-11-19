@@ -11,7 +11,7 @@ export const esc = (s) =>
 // Значення, які потрапляють у HTML без екранування, — лише з безпечного алфавіту.
 export const cleanCur = (c, fallback = 'UAH') => (/^[A-Z]{3}$/.test(String(c ?? '').trim().toUpperCase()) ? String(c).trim().toUpperCase() : fallback);
 export const cleanColor = (c, fallback = '#9aa0a6') => (/^#[0-9a-f]{3,8}$/i.test(String(c ?? '')) ? c : fallback);
-export const cleanIcon = (i, fallback = '📦') => String(i ?? '').replace(/[<>&"'`=\\/\s]/g, '').slice(0, 12) || fallback;
+export const cleanIcon = (i, fallback = '📦') => String(i ?? '').replace(/[<>&"'`=\\/\s]/g, '').slice(0, 16) || fallback;
 
 // ---------- Гроші (зберігаємо цілими копійками) ----------
 
@@ -28,11 +28,12 @@ const nf = new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 2, maximumFra
 const nf0 = new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 });
 
 // 123456 -> "1 234,56 ₴"
-export function fmtMoney(minor, currency = 'UAH', { short = false, sign = false } = {}) {
+// whole: показ цілими (копійки округлюються лише при показі — дизайн-система «суми без копійок»)
+export function fmtMoney(minor, currency = 'UAH', { short = false, sign = false, whole = false } = {}) {
   const v = fromMinor(minor);
-  const abs = Math.abs(v);
-  const num = short && abs >= 1000 ? nf0.format(abs) : nf.format(abs);
-  const s = v < 0 ? '−' : sign && v > 0 ? '+' : '';
+  const abs = whole ? Math.round(Math.abs(v)) : Math.abs(v);
+  const num = whole || (short && abs >= 1000) ? nf0.format(Math.round(abs)) : nf.format(abs);
+  const s = v < 0 && (!whole || abs > 0) ? '−' : sign && v > 0 && (!whole || abs > 0) ? '+' : '';
   const sym = CURRENCY_SYMBOLS[currency] ?? cleanCur(currency, '');
   return `${s}${num} ${sym}`;
 }
@@ -157,6 +158,13 @@ export const PALETTE = [
   '#E8505B', '#F6A623', '#F9D423', '#7ED957', '#2EC4B6', '#3A86FF', '#8338EC', '#FF6FB5',
   '#FF8C42', '#06D6A0', '#118AB2', '#9B5DE5', '#F15BB5', '#00BBF9', '#A3A847', '#C77DFF',
   '#EF476F', '#43AA8B', '#577590', '#F94144',
+];
+
+// Кольори категорій дизайн-системи (cat-01…cat-14, світла тема). У даних зберігається hex світлої теми,
+// при показі він перетворюється на var(--cat-NN), тож у темній темі колір підміняється автоматично.
+export const CAT_HEX = [
+  '#2E4A73', '#B07040', '#4F8A8B', '#A68A3E', '#7D5E8F', '#6C86A8', '#9A5656',
+  '#3F6E5A', '#7A7468', '#5A5F8A', '#A86E58', '#62683A', '#A35A7E', '#4B5563',
 ];
 
 export const EMOJIS = [
