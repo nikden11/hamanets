@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calcExpr, periodRange, shiftAnchor, fmtMoney } from '../js/util.js';
-import { convert, accountBalances, summarize, budgetProgress } from '../js/calc.js';
+import { convert, accountBalances, summarize, budgetProgress, categoryOrder } from '../js/calc.js';
 import { parseMonefy, buildImport, parseAmount, parseDate, parseTransferCategory } from '../js/monefy.js';
 
 test('калькулятор', () => {
@@ -141,4 +141,20 @@ test('версії синхронні (app.js ↔ version.json)', async () => {
   const app = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
   const v = JSON.parse(await readFile(new URL('../version.json', import.meta.url), 'utf8')).version;
   assert.equal(app.match(/APP_VERSION = '([^']+)'/)[1], v);
+});
+
+test('порядок категорій за частотою', () => {
+  const cats = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  const tx = (categoryId, date, type = 'expense') => ({ type, categoryId, date, amount: 100 });
+  const ids = (arr) => arr.map((c) => c.id).join('');
+  const opts = { type: 'expense', today: '2026-11-02' };
+  // початок місяця (<5 операцій): поточний місяць ×3 + 12 попередніх; старші за рік і доходи не рахуються
+  const early = [tx('c', '2026-10-05'), tx('c', '2026-09-01'), tx('c', '2026-08-01'), tx('c', '2026-07-01'),
+    tx('b', '2026-11-01'), tx('a', '2025-10-01'), tx('a', '2026-10-01', 'income')];
+  assert.equal(ids(categoryOrder(cats, early, opts)), 'cba'); // c=4, b=1×3, a=0
+  // ≥5 операцій у місяці — лише поточний місяць
+  const full = [...early, tx('a', '2026-11-01'), tx('a', '2026-11-02'), tx('a', '2026-11-02'), tx('b', '2026-11-02')];
+  assert.equal(ids(categoryOrder(cats, full, opts)), 'abc'); // a=3, b=2, c=0
+  // рівні — порядок з налаштувань
+  assert.equal(ids(categoryOrder(cats, [], opts)), 'abc');
 });

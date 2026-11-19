@@ -1,10 +1,10 @@
 // Гаманець — особистий облік витрат. Інтерфейс.
 import { state, load, put, remove, removeMany, putMany, commit, saveSettings, replaceAll, resetToDefaults, snapshot, sortAll } from './db.js';
 import * as U from './util.js';
-import { summarize, accountBalances, budgetProgress, monthlyTotals, convert } from './calc.js';
+import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.2.1';
+export const APP_VERSION = '1.2.2';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -624,7 +624,13 @@ function edKey(k) {
 }
 
 function renderCatStep() {
-  const cats = catsOf(ed.type);
+  // Порядок за частотою рахуємо один раз при відкритті сітки — під пальцем він не змінюється.
+  if (!ed.catOrder || ed.catOrderType !== ed.type) {
+    ed.catOrder = categoryOrder(catsOf(ed.type), state.txs, { type: ed.type, today: U.today() }).map((c) => c.id);
+    ed.catOrderType = ed.type;
+  }
+  const pos = (c) => { const i = ed.catOrder.indexOf(c.id); return i < 0 ? 1e6 : i; }; // нові — в кінці, перед «Нова»
+  const cats = [...catsOf(ed.type)].sort((a, b) => pos(a) - pos(b));
   return `${sheetHead(ed.type === 'expense' ? 'Категорія витрати' : 'Категорія доходу')}
   <div class="sheet-b"><div class="cat-grid">
     ${cats.map((c) => `<button class="cat-tile ${c.id === ed.categoryId ? 'sel' : ''}" style="--c:${catColor(c)}" data-a="edCat" data-id="${c.id}"><span class="ico">${catIco(c)}</span><span>${esc(c.name)}</span></button>`).join('')}
@@ -844,7 +850,11 @@ async function saveCategory() {
   await put('categories', rec);
   const fromEditor = ed && ed.step === 'category' && !e.id;
   closeSheet();
-  if (fromEditor && rec.type === ed.type) ed.categoryId = rec.id;
+  if (fromEditor && rec.type === ed.type) {
+    // Нова категорія з сітки вибору: якщо сума вже введена — одразу записуємо операцію (аудит 2.4)
+    ed.categoryId = rec.id; ed.step = 'amount';
+    if (ed.pending && edValue() > 0) return saveEditor();
+  }
   refreshSheet();
   render();
 }

@@ -103,3 +103,21 @@ export function monthlyTotals({ txs, accounts, base, rates, anchor, n = 6 }) {
   }
   return keys.map((k) => ({ month: k, ...res.get(k) }));
 }
+
+// Порядок категорій у сітці вибору — за КІЛЬКІСТЮ операцій (не сумою) у поточному місяці.
+// Поки в місяці менше 5 операцій цього типу, додаємо останні 12 місяців (поточний місяць з вагою ×3),
+// щоб 1-го числа порядок не «стрибав». Рівні — у порядку з налаштувань.
+export function categoryOrder(cats, txs, { type, today }) {
+  const month = today.slice(0, 7);
+  const from = `${+month.slice(0, 4) - 1}${month.slice(4)}`; // той самий місяць рік тому
+  const cur = new Map(), past = new Map();
+  let curN = 0;
+  for (const t of txs) {
+    if (t.type !== type || !t.categoryId) continue;
+    const m = t.date.slice(0, 7);
+    if (m === month) { cur.set(t.categoryId, (cur.get(t.categoryId) ?? 0) + 1); curN++; }
+    else if (m >= from && m < month) past.set(t.categoryId, (past.get(t.categoryId) ?? 0) + 1);
+  }
+  const score = (id) => (curN >= 5 ? cur.get(id) ?? 0 : (cur.get(id) ?? 0) * 3 + (past.get(id) ?? 0));
+  return cats.map((c, i) => ({ c, i, s: score(c.id) })).sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.c);
+}
