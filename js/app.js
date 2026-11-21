@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.2.3';
+export const APP_VERSION = '1.2.4';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -59,6 +59,7 @@ const CAT_ICONS = {
   transport: 'M8 3h8a3 3 0 0 1 3 3v9a3 3 0 0 1 -3 3h-8a3 3 0 0 1 -3 -3v-9a3 3 0 0 1 3 -3zM5 11h14M8 18v2.5M16 18v2.5M7.9 14.5a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0zM14.9 14.5a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0z',
   taxi: 'M4 16v-3.5l1.8-4.6a2 2 0 0 1 1.9-1.3h8.6a2 2 0 0 1 1.9 1.3l1.8 4.6V16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 12.5h16M7 17v2M17 17v2M10 3.5h4v3h-4z',
   car: 'M4 16v-3.5l1.8-4.6a2 2 0 0 1 1.9-1.3h8.6a2 2 0 0 1 1.9 1.3l1.8 4.6V16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 12.5h16M7 17v2M17 17v2M6.9 14.6a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0zM15.9 14.6a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0z',
+  parking: 'M7.5 3.5h9a4 4 0 0 1 4 4v9a4 4 0 0 1 -4 4h-9a4 4 0 0 1 -4 -4v-9a4 4 0 0 1 4 -4zM9.75 17V7h3.5a3 3 0 0 1 0 6h-3.5',
   home: 'M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z',
   utilities: 'M6 3.5h12v17l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3zM9 8h6M9 11.5h6M9 15h3.5',
   phone: 'M9.5 2.5h5a2.5 2.5 0 0 1 2.5 2.5v14a2.5 2.5 0 0 1 -2.5 2.5h-5a2.5 2.5 0 0 1 -2.5 -2.5v-14a2.5 2.5 0 0 1 2.5 -2.5zM11 18.5h2',
@@ -79,7 +80,7 @@ const PICK_ICONS = Object.keys(CAT_ICONS).filter((k) => k !== 'transfer');
 // Старі категорії зберігають емодзі — показуємо замість нього відповідну лінійну іконку (дані не змінюються).
 const EMOJI_KEY = {
   '🛒': 'groceries', '🍔': 'cafe', '🍽️': 'cafe', '🍽': 'cafe', '☕': 'cafe', '🍺': 'cafe', '🍷': 'cafe', '🚌': 'transport', '🚇': 'transport',
-  '🚕': 'taxi', '🚗': 'car', '⛽': 'car', '🅿️': 'car', '🔧': 'car', '🏠': 'home', '🛠️': 'home', '🪴': 'home', '🧹': 'home', '💡': 'utilities',
+  '🚕': 'taxi', '🚗': 'car', '⛽': 'car', '🅿️': 'parking', '🅿': 'parking', '🔧': 'car', '🏠': 'home', '🛠️': 'home', '🪴': 'home', '🧹': 'home', '💡': 'utilities',
   '🧾': 'utilities', '📱': 'phone', '🌐': 'phone', '💻': 'phone', '📺': 'phone', '👕': 'clothes', '👟': 'clothes', '💊': 'health', '🩺': 'health',
   '🦷': 'health', '🧑‍⚕️': 'health', '🎬': 'leisure', '🎮': 'leisure', '🎵': 'leisure', '🎨': 'leisure', '🎉': 'gifts', '🏋️': 'sport',
   '⚽': 'sport', '🚲': 'sport', '🎁': 'gifts', '🧸': 'gifts', '🐾': 'pets', '🐶': 'pets', '🐱': 'pets', '💼': 'salary', '🏦': 'deposits',
@@ -87,16 +88,19 @@ const EMOJI_KEY = {
 };
 const NAME_KEY = [
   [/продукт|food|grocer|супермаркет|їжа|еда/i, 'groceries'], [/кафе|ресторан|eating|cafe|restaurant|кава|coffee/i, 'cafe'],
-  [/такс|taxi|uber|bolt/i, 'taxi'], [/транспорт|transport|метро|bus/i, 'transport'], [/авто|car|машин|бенз|fuel|пальне/i, 'car'],
+  [/парк|parking/i, 'parking'], [/такс|taxi|uber|bolt/i, 'taxi'], [/транспорт|transport|метро|bus/i, 'transport'], [/авто|car|машин|бенз|fuel|пальне/i, 'car'],
   [/дім|дом|house|home|квартир|оренд|rent/i, 'home'], [/комун|bills|utilit/i, 'utilities'], [/зв.?язок|связь|communic|телефон|phone|інтернет/i, 'phone'],
   [/одяг|одежд|cloth|взутт/i, 'clothes'], [/здоров|health|аптек|лік|медиц/i, 'health'], [/розваг|развлеч|entertain|кіно|cinema/i, 'leisure'],
   [/спорт|sport|gym|фітнес/i, 'sport'], [/подар|gift/i, 'gifts'], [/тварин|живот|pet/i, 'pets'], [/зарплат|salary|wage/i, 'salary'],
   [/депозит|deposit|відсот/i, 'deposits'], [/заощадж|saving|накоп/i, 'savings'], [/кешбек|cashback|бонус/i, 'coins'],
 ];
+const PARKING = /парк|parking/i;
 function catKey(c) {
   const i = c?.icon;
-  if (CAT_ICONS[i]) return i;
-  if (EMOJI_KEY[i]) return EMOJI_KEY[i];
+  const k = CAT_ICONS[i] ? i : EMOJI_KEY[i];
+  // «Парковка» з іконкою машинки (стара автопідстановка) → знак «P»
+  if (k === 'car' && PARKING.test(c?.name ?? '')) return 'parking';
+  if (k) return k;
   const g = NAME_KEY.find(([re]) => re.test(c?.name ?? ''));
   return g ? g[1] : c?.type === 'income' ? 'coins' : 'uncategorized';
 }
