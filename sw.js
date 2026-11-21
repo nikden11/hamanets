@@ -1,8 +1,9 @@
 // Офлайн-кеш оболонки застосунку. При зміні файлів — збільшити VERSION.
-const VERSION = 'hamanets-v13';
+const VERSION = 'hamanets-v14';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/app.js', './js/db.js', './js/calc.js', './js/util.js', './js/monefy.js',
+  './fonts/ibm-plex-sans-cyrillic.woff2', './fonts/ibm-plex-sans-cyrillic-ext.woff2', './fonts/ibm-plex-sans-latin.woff2',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
 ];
 

@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout, ringOrder } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.2.9';
+export const APP_VERSION = '1.3.0';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -515,13 +515,13 @@ function viewBudgets() {
   const body = items.length ? `<div class="card">${items.map((b) => {
     const c = b.categoryId ? cat(b.categoryId) ?? NO_CAT : { name: 'Загальний бюджет', total: true };
     const pct = Math.min(b.ratio, 1) * 100;
-    const over = b.ratio > 1;
-    const color = over ? 'var(--exp)' : c.total ? 'var(--accent)' : catColor(c);
+    const over = b.ratio > 1, near = !over && b.ratio >= 0.85; // ≥ 85% — «Майже вичерпано» (аудит 2.6)
+    const color = over ? 'var(--exp)' : near ? 'var(--warn)' : c.total ? 'var(--accent)' : catColor(c);
     const perDay = isCur && b.left > 0 ? ` · ≈${fmtMoney(Math.floor(b.left / daysLeft), cur, { short: true })}/день` : '';
     return `<button class="budget ${over ? 'over-row' : ''}" style="display:block;width:100%;text-align:left;--c:${c.total ? 'var(--accent)' : catColor(c)}" data-a="editBudget" data-id="${b.id}">
       <div class="top-l">${c.total ? `<span class="ico total">${ic('target')}</span>` : `<span class="ico">${catIco(c)}</span>`}<span class="nm">${esc(c.name)}</span><span class="num">${fmtMoney(b.spent, cur).replace(/\s?[^\d\s−+]+$/, '')} з ${fmtMoney(b.amount, cur)}</span></div>
       <div class="bar"><i style="width:${pct}%;background:${color}"></i></div>
-      <div class="meta"><span>${Math.round(b.ratio * 100)}%</span><span class="${b.left < 0 ? 'over' : ''}">${b.left < 0 ? `Перевищено на ${fmtMoney(-b.left, cur)}` : `Залишилось ${fmtMoney(b.left, cur)}${perDay}`}</span></div>
+      <div class="meta"><span class="${near ? 'near' : ''}">${Math.round(b.ratio * 100)}%${near ? ' · Майже вичерпано' : ''}</span><span class="${b.left < 0 ? 'over' : ''}">${b.left < 0 ? `Перевищено на ${fmtMoney(-b.left, cur)}` : `Залишилось ${fmtMoney(b.left, cur)}${perDay}`}</span></div>
     </button>`;
   }).join('')}</div>` : `<div class="empty"><div class="e-ico">${ic('target')}</div>Бюджетів ще немає.<br>Задайте місячний ліміт на категорію або загальний — і стежте, скільки ще можна витратити.</div>`;
 
