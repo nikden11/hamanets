@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.2.4';
+export const APP_VERSION = '1.2.5';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -61,11 +61,12 @@ const CAT_ICONS = {
   car: 'M4 16v-3.5l1.8-4.6a2 2 0 0 1 1.9-1.3h8.6a2 2 0 0 1 1.9 1.3l1.8 4.6V16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 12.5h16M7 17v2M17 17v2M6.9 14.6a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0zM15.9 14.6a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0z',
   parking: 'M7.5 3.5h9a4 4 0 0 1 4 4v9a4 4 0 0 1 -4 4h-9a4 4 0 0 1 -4 -4v-9a4 4 0 0 1 4 -4zM9.75 17V7h3.5a3 3 0 0 1 0 6h-3.5',
   home: 'M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z',
-  utilities: 'M6 3.5h12v17l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3zM9 8h6M9 11.5h6M9 15h3.5',
+  utilities: 'M6 3.5h12v17l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3zM9.8 8.4A2.4 2.4 0 0 1 12 7.2c1.3 0 2.2.8 2.2 1.9 0 2-4.4 2.3-4.4 4.5 0 1 .9 1.7 2.2 1.7 1 0 1.8-.5 2.2-1.3M9 10.6h6M9 12.8h6',
   phone: 'M9.5 2.5h5a2.5 2.5 0 0 1 2.5 2.5v14a2.5 2.5 0 0 1 -2.5 2.5h-5a2.5 2.5 0 0 1 -2.5 -2.5v-14a2.5 2.5 0 0 1 2.5 -2.5zM11 18.5h2',
   clothes: 'M8.5 3.5 4 6l1.8 4.2L8 9.4v11.1h8V9.4l2.2.8L20 6l-4.5-2.5a3.5 3.5 0 0 1-7 0z',
   health: 'M7.5 3.5h9a4 4 0 0 1 4 4v9a4 4 0 0 1 -4 4h-9a4 4 0 0 1 -4 -4v-9a4 4 0 0 1 4 -4zM12 8v8M8 12h8',
   leisure: 'M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0 -17 0zM10.5 9v6l5-3z',
+  beauty: 'M7.5 13.5h9v7h-9zM8.75 9.75h6.5v3.75h-6.5zM9.75 9.75V6l4.5-2.75v6.5',
   sport: 'M6.5 7.5v9M17.5 7.5v9M3.5 10v4M20.5 10v4M6.5 12h11',
   gifts: 'M5 9h14a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-14a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1zM5.5 13v7.5h13V13M12 9v11.5M12 9c-1.5-3-4.5-3.5-4.5-1.5S10.5 9 12 9zM12 9c1.5-3 4.5-3.5 4.5-1.5S13.5 9 12 9z',
   pets: 'M12 13c-2.5 0-5 2.6-5 4.8 0 1.6 1.4 2.2 2.6 2.2 1 0 1.6-.5 2.4-.5s1.4.5 2.4.5c1.2 0 2.6-.6 2.6-2.2 0-2.2-2.5-4.8-5-4.8zM4.1 10.8a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0 -3.4 0zM7.7 6.6a1.8 1.8 0 1 0 3.6 0a1.8 1.8 0 1 0 -3.6 0zM12.7 6.6a1.8 1.8 0 1 0 3.6 0a1.8 1.8 0 1 0 -3.6 0zM16.5 10.8a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0 -3.4 0z',
@@ -80,7 +81,7 @@ const PICK_ICONS = Object.keys(CAT_ICONS).filter((k) => k !== 'transfer');
 // Старі категорії зберігають емодзі — показуємо замість нього відповідну лінійну іконку (дані не змінюються).
 const EMOJI_KEY = {
   '🛒': 'groceries', '🍔': 'cafe', '🍽️': 'cafe', '🍽': 'cafe', '☕': 'cafe', '🍺': 'cafe', '🍷': 'cafe', '🚌': 'transport', '🚇': 'transport',
-  '🚕': 'taxi', '🚗': 'car', '⛽': 'car', '🅿️': 'parking', '🅿': 'parking', '🔧': 'car', '🏠': 'home', '🛠️': 'home', '🪴': 'home', '🧹': 'home', '💡': 'utilities',
+  '🚕': 'taxi', '🚗': 'car', '⛽': 'car', '🅿️': 'parking', '🅿': 'parking', '🔧': 'car', '🏠': 'home', '🛠️': 'home', '🪴': 'home', '🧹': 'home', '💡': 'utilities', '💄': 'beauty', '💅': 'beauty', '💇': 'beauty', '💇‍♀️': 'beauty',
   '🧾': 'utilities', '📱': 'phone', '🌐': 'phone', '💻': 'phone', '📺': 'phone', '👕': 'clothes', '👟': 'clothes', '💊': 'health', '🩺': 'health',
   '🦷': 'health', '🧑‍⚕️': 'health', '🎬': 'leisure', '🎮': 'leisure', '🎵': 'leisure', '🎨': 'leisure', '🎉': 'gifts', '🏋️': 'sport',
   '⚽': 'sport', '🚲': 'sport', '🎁': 'gifts', '🧸': 'gifts', '🐾': 'pets', '🐶': 'pets', '🐱': 'pets', '💼': 'salary', '🏦': 'deposits',
@@ -89,17 +90,23 @@ const EMOJI_KEY = {
 const NAME_KEY = [
   [/продукт|food|grocer|супермаркет|їжа|еда/i, 'groceries'], [/кафе|ресторан|eating|cafe|restaurant|кава|coffee/i, 'cafe'],
   [/парк|parking/i, 'parking'], [/такс|taxi|uber|bolt/i, 'taxi'], [/транспорт|transport|метро|bus/i, 'transport'], [/авто|car|машин|бенз|fuel|пальне/i, 'car'],
-  [/дім|дом|house|home|квартир|оренд|rent/i, 'home'], [/комун|bills|utilit/i, 'utilities'], [/зв.?язок|связь|communic|телефон|phone|інтернет/i, 'phone'],
+  [/дім|дом|house|home|житл|квартир|оренд|rent/i, 'home'], [/крас|beauty|косм|салон|манік|перук|барбер/i, 'beauty'], [/комун|bills|utilit/i, 'utilities'], [/зв.?язок|связь|communic|телефон|phone|інтернет/i, 'phone'],
   [/одяг|одежд|cloth|взутт/i, 'clothes'], [/здоров|health|аптек|лік|медиц/i, 'health'], [/розваг|развлеч|entertain|кіно|cinema/i, 'leisure'],
   [/спорт|sport|gym|фітнес/i, 'sport'], [/подар|gift/i, 'gifts'], [/тварин|живот|pet/i, 'pets'], [/зарплат|salary|wage/i, 'salary'],
   [/депозит|deposit|відсот/i, 'deposits'], [/заощадж|saving|накоп/i, 'savings'], [/кешбек|cashback|бонус/i, 'coins'],
 ];
-const PARKING = /парк|parking/i;
+const NAME_FIX = [
+  [/парк|parking/i, 'parking', ['car']], [/комун|utilit/i, 'utilities', ['home']],
+  [/житл|жильё|жилье|квартир|оренд|rent|housing/i, 'home', ['uncategorized', '']],
+  [/крас|beauty|косм|салон|манік|перук|барбер/i, 'beauty', ['uncategorized', '']],
+];
 function catKey(c) {
   const i = c?.icon;
   const k = CAT_ICONS[i] ? i : EMOJI_KEY[i];
-  // «Парковка» з іконкою машинки (стара автопідстановка) → знак «P»
-  if (k === 'car' && PARKING.test(c?.name ?? '')) return 'parking';
+  // Назва важливіша за стару автопідстановку: «Парковка» з машинкою → «P», «Комуналка» з будиночком → рахунок,
+  // «Житло»/«Краса» з «•••» → будиночок/помада (дані не мігруються).
+  const fix = NAME_FIX.find(([re, , from]) => from.includes(k ?? '') && re.test(c?.name ?? ''));
+  if (fix) return fix[1];
   if (k) return k;
   const g = NAME_KEY.find(([re]) => re.test(c?.name ?? ''));
   return g ? g[1] : c?.type === 'income' ? 'coins' : 'uncategorized';
@@ -250,15 +257,36 @@ function viewHome() {
     </div>
     ${cells.join('')}
   </section>
+  <button class="balance-bar" data-a="openSummary">${balanceInner(s)}</button>
   <div class="big-actions">
     <button class="big minus" data-a="addTx" data-type="expense">${ic('minus')} Витрата</button>
     <button class="big plus" data-a="addTx" data-type="income">${ic('plus')} Дохід</button>
   </div>
-  <button class="balance-bar" data-a="goOps"><span>Баланс</span><span class="r"><b class="num ${s.balance < 0 ? 'exp' : ''}">${fmtMoney(s.balance, s.currency)}</b>${ic('chevR')}</span></button>
-  ${breakdownCard(s, 'expense', 'Витрати')}
-  ${breakdownCard(s, 'income', 'Доходи')}
-  ${trendCard()}
   ${backupReminder()}`;
+}
+
+// Баланс за період = доходи − витрати (не залишок на рахунках).
+function balanceInner(s) {
+  const b = s.income - s.expense;
+  return `<span>${ui.period.kind === 'month' ? 'Баланс за місяць' : 'Баланс за період'}</span><span class="r"><b class="num ${b < 0 ? 'exp' : 'inc'}">${fmtMoney(b, s.currency, { sign: true })}</b>${ic('chevR')}</span>`;
+}
+
+// Підсумок періоду (шторка): доходи/витрати, розбивка за категоріями, 6 місяців. Відкривається з «Балансу» і з тосту після запису.
+function openSummary() {
+  openSheet({ full: true, render: () => {
+    const s = currentSummary();
+    const b = s.income - s.expense;
+    return `${sheetHead(range().label)}
+    <div class="sheet-b">
+      <div class="card"><div class="row static"><span class="mid"><div class="t1">Доходи</div></span><span class="amt num inc">${fmtMoney(s.income, s.currency, { sign: true })}</span></div>
+        <div class="row static"><span class="mid"><div class="t1">Витрати</div></span><span class="amt num exp">${fmtMoney(-s.expense, s.currency)}</span></div>
+        <div class="row static"><span class="mid"><div class="t1"><b>Баланс</b></div></span><span class="amt num ${b < 0 ? 'exp' : 'inc'}"><b>${fmtMoney(b, s.currency, { sign: true })}</b></span></div></div>
+      ${breakdownCard(s, 'expense', 'Витрати')}
+      ${breakdownCard(s, 'income', 'Доходи')}
+      ${trendCard()}
+      <button class="btn ghost" style="width:100%;margin:4px 0 24px" data-a="goOps">Усі операції</button>
+    </div>`;
+  } });
 }
 
 function backupReminder() {
@@ -659,7 +687,7 @@ async function saveEditor() {
   const isNew = !ed.id;
   closeSheet();
   render();
-  toast(`${c.name}: ${t.type === 'expense' ? '−' : '+'}${edMoney(t.amount, acc(t.accountId).currency)}${isNew ? '' : ' · збережено'}`);
+  toast(`${c.name}: ${t.type === 'expense' ? '−' : '+'}${edMoney(t.amount, acc(t.accountId).currency)}${isNew ? '' : ' · збережено'}`, { label: 'Підсумок', fn: () => openSummary() });
   persistStorage();
 }
 
@@ -1184,7 +1212,8 @@ const actions = {
     closeSheet(); render();
   },
   periodShift: (d) => { ui.period.anchor = U.shiftAnchor(ui.period.kind, ui.period.anchor, +d.dir); render(); },
-  goOps: (d) => { ui.tab = 'ops'; ui.opsCat = d.cat || null; ui.opsSearch = ''; render(); scrollTo(0, 0); },
+  openSummary: () => openSummary(),
+  goOps: (d) => { while (sheets.length) closeSheet(); ui.tab = 'ops'; ui.opsCat = d.cat || null; ui.opsSearch = ''; render(); scrollTo(0, 0); },
   clearOpsCat: () => { ui.opsCat = null; render(); },
 
   addTx: (d) => openEditor({ type: d.type, categoryId: d.cat || null }),
