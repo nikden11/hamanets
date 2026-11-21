@@ -107,6 +107,11 @@ svg.ci { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-wid
 .ring-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .ring-lines polyline { fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .ring-cat { position: absolute; width: 52px; height: 52px; margin: -26px 0 0 -26px; padding: 0; border-radius: 50%; }
+.ring-cat.glide { transition: left .2s cubic-bezier(.2,.8,.2,1), top .2s cubic-bezier(.2,.8,.2,1); }
+.ring-cat.appear { animation: ringIn .2s ease-out; }
+@keyframes ringIn { from { opacity: 0; transform: scale(.8); } }
+.ring.moving .ring-lines { animation: fadeIn .25s ease-out .1s backwards; }
+@keyframes fadeIn { from { opacity: 0; } }
 .ring-cat::before { content: ''; position: absolute; inset: -4px; border-radius: 50%; } /* зона дотику 60px */
 .ring-ico {
   width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
@@ -372,4 +377,11 @@ button.row:active, .row.tap:active { background: var(--card-2); }
 @media (min-width: 560px) {
   .sheet { border-radius: 24px; margin-bottom: 20px; max-height: calc(100% - 40px); }
   .sheet.full { height: min(860px, calc(100% - 40px)); }
+}
+
+/* Дуже низькі екрани (iPhone SE 1-го покоління): кнопки Огляду трохи нижчі, щоб кола лишались ≥ 44px (аудит №2, N5) */
+@media (max-height: 600px) {
+  .balance-bar { min-height: 40px; height: 40px; }
+  .big-actions { padding-top: 8px; }
+  .big-actions .big { height: 48px; min-height: 48px; }
 }

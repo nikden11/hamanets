@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout, ringOrder } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.2.8';
+export const APP_VERSION = '1.2.9';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -159,28 +159,63 @@ function render() {
   applyTheme();
   if (!multi()) { ui.accountId = null; if (ui.tab === 'accounts') ui.tab = 'home'; }
   const views = { home: viewHome, ops: viewOps, stats: viewStats, budgets: viewBudgets, accounts: viewAccounts };
+  const before = ringPositions();
   $('#app').innerHTML = views[ui.tab]() + tabbar();
+  moveRing(before);
   // Огляд — статичний екран без прокручування; якщо не влазить (малий iPhone), кільце трохи зменшується.
   document.documentElement.classList.toggle('static', ui.tab === 'home');
   if (ui.tab === 'home') { scrollTo(0, 0); fitHome(); }
 }
 
+// Рух кіл (аудит 1.4 / Д4): коло тієї ж категорії переїжджає зі старого місця на нове за 200 мс.
+const ringKey = (b) => b.dataset.cat ?? 'more';
+function ringPositions() {
+  const m = new Map();
+  document.querySelectorAll('#ring .ring-cat').forEach((b) => m.set(ringKey(b), [b.style.left, b.style.top]));
+  return m;
+}
+function moveRing(before) {
+  if (fitting || !before.size || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const moved = [];
+  document.querySelectorAll('#ring .ring-cat').forEach((b) => {
+    const old = before.get(ringKey(b));
+    if (!old) { b.classList.add('appear'); return; }
+    if (old[0] === b.style.left && old[1] === b.style.top) return;
+    moved.push([b, b.style.left, b.style.top]);
+    b.style.left = old[0]; b.style.top = old[1];
+  });
+  if (!moved.length) return;
+  $('#ring').classList.add('moving');
+  void $('#ring').offsetWidth;
+  // якщо шторка ще закривається — рушаємо після неї, щоб рух було видно
+  const delay = document.querySelector('.sheet-wrap') ? '.22s' : '0s';
+  for (const [b, l, t] of moved) { b.classList.add('glide'); b.style.transitionDelay = delay; b.style.left = l; b.style.top = t; }
+}
+
 // Огляд на весь екран: зона кільця розтягується, щоб кнопки стояли над таббаром на будь-якому iPhone;
 // на низьких екранах (менше 392px під кільце) — кільце пропорційно стискається.
-let ringH = 392, fitting = false;
+// Нестача місця спершу забирається з висоти зони (контур кіл пласкішає, до RING_MIN_H), і лише потім —
+// масштабом, не дрібніше 0.85, щоб коло лишалось ≥ 44px (аудит №2, N5). Поки відкрита шторка — нічого не перераховуємо (N4).
+const RING_MIN_H = 340;
+let ringH = 392, ringK = 1, fitting = false;
+function applyRingK(ring = $('#ring')) {
+  if (!ring) return;
+  ring.style.transform = ringK < 1 ? `scale(${ringK.toFixed(3)})` : '';
+  ring.style.marginBottom = ringK < 1 ? `${(-(ringH * (1 - ringK))).toFixed(1)}px` : '';
+}
 function fitHome() {
   const ring = $('#ring');
   if (!ring || fitting) return;
-  ring.style.transform = ''; ring.style.marginBottom = '';
+  if (sheets.length) return applyRingK(ring);
+  ringK = 1; applyRingK(ring);
   const free = $('.tabbar').getBoundingClientRect().top - $('.big-actions').getBoundingClientRect().bottom - 12;
-  const want = Math.max(392, Math.min(900, Math.round(Math.max(392, ringH) + free)));
+  const want = Math.max(RING_MIN_H, Math.min(900, Math.round(ringH + free)));
   if (Math.abs(want - ringH) > 2) { ringH = want; fitting = true; render(); fitting = false; return fitHome(); }
   if (free >= 0) return;
-  const k = Math.max(0.72, (392 + free) / 392);
-  ring.style.transform = `scale(${k.toFixed(3)})`;
-  ring.style.marginBottom = `${(-(392 * (1 - k))).toFixed(1)}px`;
+  ringK = Math.max(0.85, (ringH + free) / ringH);
+  applyRingK(ring);
 }
-addEventListener('resize', () => { if (ui.tab === 'home') fitHome(); });
+addEventListener('resize', () => { if (ui.tab === 'home' && !sheets.length) fitHome(); });
 // iOS: у статичному Огляді не даємо сторінці «тягнутися» (пружина), але шторки прокручуються.
 document.addEventListener('touchmove', (e) => {
   if (document.documentElement.classList.contains('static') && !sheets.length) e.preventDefault();
@@ -255,8 +290,11 @@ function viewHome() {
   const items = ringOrder(spent.length > RING_MAX ? [...spent.slice(0, RING_MAX - 1),
     { more: true, amount: spent.slice(RING_MAX - 1).reduce((t, x) => t + x.amount, 0) }] : spent);
   const segs = items.map((x) => ({ value: x.amount, color: x.more ? 'var(--line-strong)' : catColor(x.c) }));
-  const H = Math.max(392, ringH); // висота зони кільця: росте на високих екранах (fitHome)
-  const L = ringLayout(items.map((x) => x.amount), { cy: H / 2, b: 146 + Math.min(50, (H - 392) / 2) });
+  const H = Math.max(RING_MIN_H, ringH); // висота зони кільця: росте на високих екранах, пласкішає на низьких (fitHome)
+  // b ≤ H/2 − 68: над верхнім колом лишається ≥ 24px під його суму (аудит №2, N4)
+  // (на найнижчих екранах — до 12px, плавно)
+  const top = 56 + 12 * Math.min(1, Math.max(0, (H - 340) / 52));
+  const L = ringLayout(items.map((x) => x.amount), { cy: H / 2, b: Math.min(146 + Math.min(50, (H - 392) / 2), H / 2 - top) });
   const X = (v) => `${((v / 390) * 100).toFixed(2)}%`;
   const lines = L.map((l, i) => `<polyline points="${l.line.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}" style="stroke:${segs[i].color}"/>`).join('');
   const cells = items.map((x, i) => {
@@ -555,6 +593,7 @@ function closeSheet() {
   setTimeout(() => sh.wrap.remove(), 260);
   if (!sheets.length) document.body.style.overflow = '';
   sh.onClose?.();
+  if (!sheets.length && ui.tab === 'home') fitHome();
 }
 
 const sheetHead = (title, right = '') => `<div class="grabber"></div><div class="sheet-h">
@@ -684,7 +723,10 @@ function renderCatStep() {
   }
   const pos = (c) => { const i = ed.catOrder.indexOf(c.id); return i < 0 ? 1e6 : i; }; // нові — в кінці, перед «Нова»
   const cats = [...catsOf(ed.type)].sort((a, b) => pos(a) - pos(b));
-  return `${sheetHead(ed.type === 'expense' ? 'Категорія витрати' : 'Категорія доходу')}
+  const v = edValue(), a = acc(ed.accountId);
+  // Сума видна перед останнім тапом (тап по плитці одразу записує) — аудит №2, N6
+  const sum = Number.isFinite(v) && v > 0 ? ` · <span class="num ${ed.type === 'expense' ? 'exp' : 'inc'}">${ed.type === 'expense' ? '−' : '+'}${edMoney(U.toMinor(v), a.currency)}</span>` : '';
+  return `${sheetHead((ed.type === 'expense' ? 'Категорія витрати' : 'Категорія доходу') + sum)}
   <div class="sheet-b"><div class="cat-grid">
     ${cats.map((c) => `<button class="cat-tile ${c.id === ed.categoryId ? 'sel' : ''}" style="--c:${catColor(c)}" data-a="edCat" data-id="${c.id}"><span class="ico">${catIco(c)}</span><span>${esc(c.name)}</span></button>`).join('')}
     <button class="cat-tile add" data-a="editCategory" data-type="${ed.type}"><span class="ico">${ic('plus')}</span><span>Нова</span></button>
