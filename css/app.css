@@ -113,7 +113,7 @@ svg.ci { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-wid
 /* ---------- Головна: кільце категорій ---------- */
 .ring { position: relative; height: 392px; margin: 0 auto; width: 100%; max-width: 430px; touch-action: pan-y; }
 .ring-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
-.ring-lines polyline { fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.ring-lines path { fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .ring-cat { position: absolute; width: 52px; height: 52px; margin: -26px 0 0 -26px; padding: 0; border-radius: 50%; }
 .ring-cat.glide { transition: left .2s cubic-bezier(.2,.8,.2,1), top .2s cubic-bezier(.2,.8,.2,1); }
 .ring-cat.appear { animation: ringIn .2s ease-out; }
@@ -123,21 +123,23 @@ svg.ci { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-wid
 .ring-cat::before { content: ''; position: absolute; inset: -4px; border-radius: 50%; } /* зона дотику 60px */
 .ring-ico {
   width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
-  background: var(--idle); color: var(--muted);
+  color: var(--muted); transition: background-color .15s;
 }
-.ring-cat.on .ring-ico { background: var(--c); color: var(--on-cat); }
+/* іконка без кола: лише лінійний знак кольором категорії (Денис, 2026-11-21) */
+.ring-cat.on .ring-ico { color: var(--c); }
+.ring-ico svg.ci { width: 30px; height: 30px; stroke-width: 1.75; }
 .ring-amt {
-  position: absolute; left: 50%; top: 55px; width: 72px; margin-left: -36px; text-align: center; pointer-events: none;
+  position: absolute; left: 50%; top: 46px; width: 72px; margin-left: -36px; text-align: center; pointer-events: none;
   font-size: 11px; line-height: 15px; font-weight: 500; letter-spacing: .02em; color: var(--text); white-space: nowrap;
 }
-.ring-amt.up { top: -18px; }
-.ring-center { position: absolute; left: 50%; top: 112px; width: 168px; height: 168px; margin-left: -84px; border-radius: 50%; display: grid; place-items: center; }
-.ring-center svg { width: 168px; height: 168px; display: block; }
+.ring-amt.up { top: -10px; }
+.ring-center { position: absolute; left: 50%; top: 122px; width: 148px; height: 148px; margin-left: -74px; border-radius: 50%; display: grid; place-items: center; }
+.ring-center svg { width: 148px; height: 148px; display: block; }
 .donut-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-align: center; pointer-events: none; }
 .donut-text .sub { font-size: 11px; line-height: 14px; font-weight: 500; color: var(--muted); letter-spacing: .04em; }
-.donut-text .big-sum { font-size: 20px; line-height: 26px; font-weight: 600; letter-spacing: -.01em; }
+.donut-text .big-sum { font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -.01em; }
 .donut-text .small-sum { font-size: 13px; line-height: 18px; font-weight: 500; }
-.donut-text .hint0 { font-size: 13px; line-height: 18px; color: var(--muted); max-width: 120px; }
+.donut-text .hint0 { font-size: 13px; line-height: 18px; color: var(--muted); max-width: 108px; }
 
 .big-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 16px 4px; }
 .big {
@@ -374,7 +376,8 @@ button.row:active, .row.tap:active { background: var(--card-2); }
 .pressed { transition: none !important; }
 .keypad button.pressed { background: color-mix(in srgb, var(--accent) 30%, var(--card)); color: var(--accent); }
 .keypad button.op.pressed { background: var(--accent); color: var(--on-accent); }
-.ring-cat.pressed .ring-ico, .cat-tile.pressed .ico { outline: 3px solid var(--accent); outline-offset: 2px; }
+.ring-cat.pressed .ring-ico { background: color-mix(in srgb, var(--c) 22%, transparent); }
+.cat-tile.pressed .ico { outline: 3px solid var(--accent); outline-offset: 2px; }
 .big.pressed, .ok-btn.pressed, .btn.pressed { filter: brightness(.82); }
 .row.pressed, .budget.pressed, .balance-bar.pressed, .chip.pressed, .period-label.pressed, .icon-btn.pressed,
 .seg button.pressed, .icon-grid button.pressed { background-color: var(--accent-soft); }

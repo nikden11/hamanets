@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout, ringOrder } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.3.1';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -215,7 +215,17 @@ function fitHome() {
   ringK = Math.max(0.85, (ringH + free) / ringH);
   applyRingK(ring);
 }
-addEventListener('resize', () => { if (ui.tab === 'home' && !sheets.length) fitHome(); });
+// Перерахунок і тоді, коли висоти змінились без resize: довантажився шрифт (цифри — окремий файл),
+// iOS після запуску з початкового екрана змінив висоту вікна, застосунок повернувся з фону.
+let refitT = 0;
+function refit() { clearTimeout(refitT); refitT = setTimeout(() => { if (ui.tab === 'home' && !sheets.length) fitHome(); }, 60); }
+addEventListener('resize', refit);
+addEventListener('orientationchange', refit);
+addEventListener('pageshow', refit);
+visualViewport?.addEventListener('resize', refit);
+document.fonts?.addEventListener?.('loadingdone', refit);
+document.fonts?.ready.then(refit);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refit(); });
 // iOS: у статичному Огляді не даємо сторінці «тягнутися» (пружина), але шторки прокручуються.
 document.addEventListener('touchmove', (e) => {
   if (document.documentElement.classList.contains('static') && !sheets.length) e.preventDefault();
@@ -265,6 +275,7 @@ function currentSummary() {
 // Кільце: на ньому лише категорії з витратами за період (до 13 + «Ще»), кола — по заокругленому прямокутнику
 // навколо діаграми (ringLayout у calc.js, координати в дизайн-сітці 390×392; x масштабується за шириною).
 const RING_MAX = 14;
+const DONUT = 148; // діаметр діаграми (було 168 — Денис попросив менше, 2026-11-21)
 
 function donutSvg(segs, size = 120, stroke = 10) {
   const r = (size - stroke) / 2, C = 2 * Math.PI * r, total = segs.reduce((s, x) => s + x.value, 0);
@@ -294,9 +305,10 @@ function viewHome() {
   // b ≤ H/2 − 68: над верхнім колом лишається ≥ 24px під його суму (аудит №2, N4)
   // (на найнижчих екранах — до 12px, плавно)
   const top = 56 + 12 * Math.min(1, Math.max(0, (H - 340) / 52));
-  const L = ringLayout(items.map((x) => x.amount), { cy: H / 2, b: Math.min(146 + Math.min(50, (H - 392) / 2), H / 2 - top) });
+  const L = ringLayout(items.map((x) => x.amount), { ro: DONUT / 2, cy: H / 2, b: Math.min(146 + Math.min(50, (H - 392) / 2), H / 2 - top) });
   const X = (v) => `${((v / 390) * 100).toFixed(2)}%`;
-  const lines = L.map((l, i) => `<polyline points="${l.line.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}" style="stroke:${segs[i].color}"/>`).join('');
+  const f = (q) => q.map((v) => v.toFixed(1)).join(',');
+  const lines = L.map((l, i) => `<path d="M${f(l.line[0])}Q${f(l.line[1])} ${f(l.line[2])}" style="stroke:${segs[i].color}"/>`).join('');
   const cells = items.map((x, i) => {
     const { x: cx, y, up } = L[i];
     const pos = `left:${X(cx)};top:${y.toFixed(1)}px;--c:${segs[i].color}`;
@@ -309,8 +321,8 @@ function viewHome() {
   return `<header class="top">${headerTop()}${periodRow()}</header>
   <section class="ring" id="ring" style="height:${H}px">
     <svg class="ring-lines" viewBox="0 0 390 ${H}" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
-    <div class="ring-center" style="top:${H / 2 - 84}px" data-a="goOps" role="button" aria-label="Операції за період">
-      ${donutSvg(segs, 168, 12)}
+    <div class="ring-center" style="top:${H / 2 - DONUT / 2}px" data-a="goOps" role="button" aria-label="Операції за період">
+      ${donutSvg(segs, DONUT, 11)}
       <div class="donut-text">${s.expense || s.income ? `
         <div class="sub">ВИТРАТИ</div>
         <div class="big-sum num exp">${fmtMoney(-s.expense, s.currency)}</div>

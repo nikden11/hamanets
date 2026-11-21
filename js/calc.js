@@ -133,7 +133,7 @@ export function ringOrder(items) {
   return out;
 }
 
-export function ringLayout(values, { cx = 195, cy = 196, ro = 84, a = 158, b = 146, n = 4, gap = 76 } = {}) {
+export function ringLayout(values, { cx = 195, cy = 196, ro = 84, a = 158, b = 146, n = 4, gap = 76, end = 22 } = {}) {
   const total = values.reduce((s, v) => s + v, 0);
   if (!values.length || total <= 0) return [];
   const rad = (d) => (d * Math.PI) / 180;
@@ -164,9 +164,11 @@ export function ringLayout(values, { cx = 195, cy = 196, ro = 84, a = 158, b = 1
   idx.forEach((i, k) => { pos[i] = toDeg(((p[k] % P) + P) % P); });
   return mids.map((m, i) => {
     const [x, y] = pt(rr(pos[i]), pos[i]);
-    const p1 = pt(ro + 1, m), p2 = pt(ro + 12, m);
-    const dx = x - p2[0], dy = y - p2[1], dl = Math.hypot(dx, dy) || 1;
-    const p3 = [x - (dx / dl) * 29, y - (dy / dl) * 29];
-    return { x, y, up: y < cy - 70, line: [p1, p2, p3] };
+    // лінія — плавна крива (без зламу): виходить з кільця по радіусу і м'яко повертає до іконки
+    const p1 = pt(ro + 2, m);
+    const c = pt(ro + 2 + 0.3 * Math.hypot(x - p1[0], y - p1[1]), m);
+    const dx = x - c[0], dy = y - c[1], dl = Math.hypot(dx, dy) || 1;
+    const p3 = [x - (dx / dl) * end, y - (dy / dl) * end];
+    return { x, y, up: y < cy - 70, line: [p1, c, p3] };
   });
 }
