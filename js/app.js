@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.2.5';
+export const APP_VERSION = '1.2.6';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -159,7 +159,26 @@ function render() {
   if (!multi()) { ui.accountId = null; if (ui.tab === 'accounts') ui.tab = 'home'; }
   const views = { home: viewHome, ops: viewOps, stats: viewStats, budgets: viewBudgets, accounts: viewAccounts };
   $('#app').innerHTML = views[ui.tab]() + tabbar();
+  // Огляд — статичний екран без прокручування; якщо не влазить (малий iPhone), кільце трохи зменшується.
+  document.documentElement.classList.toggle('static', ui.tab === 'home');
+  if (ui.tab === 'home') { scrollTo(0, 0); fitHome(); }
 }
+
+function fitHome() {
+  const ring = $('#ring');
+  if (!ring) return;
+  ring.style.transform = ''; ring.style.marginBottom = '';
+  const over = $('#app').scrollHeight - innerHeight;
+  if (over <= 0) return;
+  const k = Math.max(0.72, (392 - over) / 392);
+  ring.style.transform = `scale(${k.toFixed(3)})`;
+  ring.style.marginBottom = `${(-(392 * (1 - k))).toFixed(1)}px`;
+}
+addEventListener('resize', () => { if (ui.tab === 'home') fitHome(); });
+// iOS: у статичному Огляді не даємо сторінці «тягнутися» (пружина), але шторки прокручуються.
+document.addEventListener('touchmove', (e) => {
+  if (document.documentElement.classList.contains('static') && !sheets.length) e.preventDefault();
+}, { passive: false });
 
 function applyTheme() {
   const t = state.settings.theme;
@@ -261,8 +280,7 @@ function viewHome() {
   <div class="big-actions">
     <button class="big minus" data-a="addTx" data-type="expense">${ic('minus')} Витрата</button>
     <button class="big plus" data-a="addTx" data-type="income">${ic('plus')} Дохід</button>
-  </div>
-  ${backupReminder()}`;
+  </div>`;
 }
 
 // Баланс за період = доходи − витрати (не залишок на рахунках).
@@ -969,6 +987,7 @@ function settingsSheet() {
       const s = state.settings;
       const usedCur = [...new Set([...state.accounts.map((a) => a.currency), ...Object.keys(s.rates)])].filter((c) => c !== s.baseCurrency);
       return `${sheetHead('Налаштування')}<div class="sheet-b">
+      ${backupReminder()}
       <div class="section-t">Дані</div>
       <div class="card">
         <label class="row tap"><span class="ico ui">${ic('wallet')}</span><span class="mid"><div class="t1">Кілька рахунків</div><div class="t2">Готівка, картки, валюти, перекази</div></span><input type="checkbox" class="switch" data-in="multiAcc" ${multi() ? 'checked' : ''}></label>
