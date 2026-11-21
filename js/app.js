@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.2.6';
+export const APP_VERSION = '1.2.7';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -164,13 +164,18 @@ function render() {
   if (ui.tab === 'home') { scrollTo(0, 0); fitHome(); }
 }
 
+// Огляд на весь екран: зона кільця розтягується, щоб кнопки стояли над таббаром на будь-якому iPhone;
+// на низьких екранах (менше 392px під кільце) — кільце пропорційно стискається.
+let ringH = 392, fitting = false;
 function fitHome() {
   const ring = $('#ring');
-  if (!ring) return;
+  if (!ring || fitting) return;
   ring.style.transform = ''; ring.style.marginBottom = '';
-  const over = $('#app').scrollHeight - innerHeight;
-  if (over <= 0) return;
-  const k = Math.max(0.72, (392 - over) / 392);
+  const free = $('.tabbar').getBoundingClientRect().top - $('.big-actions').getBoundingClientRect().bottom - 12;
+  const want = Math.max(392, Math.min(900, Math.round(Math.max(392, ringH) + free)));
+  if (Math.abs(want - ringH) > 2) { ringH = want; fitting = true; render(); fitting = false; return fitHome(); }
+  if (free >= 0) return;
+  const k = Math.max(0.72, (392 + free) / 392);
   ring.style.transform = `scale(${k.toFixed(3)})`;
   ring.style.marginBottom = `${(-(392 * (1 - k))).toFixed(1)}px`;
 }
@@ -249,7 +254,8 @@ function viewHome() {
   const items = spent.length > RING_MAX ? [...spent.slice(0, RING_MAX - 1),
     { more: true, amount: spent.slice(RING_MAX - 1).reduce((t, x) => t + x.amount, 0) }] : spent;
   const segs = items.map((x) => ({ value: x.amount, color: x.more ? 'var(--line-strong)' : catColor(x.c) }));
-  const L = ringLayout(items.map((x) => x.amount));
+  const H = Math.max(392, ringH); // висота зони кільця: росте на високих екранах (fitHome)
+  const L = ringLayout(items.map((x) => x.amount), { cy: H / 2, b: 146 + Math.min(50, (H - 392) / 2) });
   const X = (v) => `${((v / 390) * 100).toFixed(2)}%`;
   const lines = L.map((l, i) => `<polyline points="${l.line.map((q) => q.map((v) => v.toFixed(1)).join(',')).join(' ')}" style="stroke:${segs[i].color}"/>`).join('');
   const cells = items.map((x, i) => {
@@ -262,9 +268,9 @@ function viewHome() {
   });
 
   return `<header class="top">${headerTop()}${periodRow()}</header>
-  <section class="ring" id="ring">
-    <svg class="ring-lines" viewBox="0 0 390 392" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
-    <div class="ring-center" data-a="goOps" role="button" aria-label="Операції за період">
+  <section class="ring" id="ring" style="height:${H}px">
+    <svg class="ring-lines" viewBox="0 0 390 ${H}" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
+    <div class="ring-center" style="top:${H / 2 - 84}px" data-a="goOps" role="button" aria-label="Операції за період">
       ${donutSvg(segs, 168, 12)}
       <div class="donut-text">${s.expense || s.income ? `
         <div class="sub">ВИТРАТИ</div>
