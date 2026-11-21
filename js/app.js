@@ -1,10 +1,10 @@
 // Гаманець — особистий облік витрат. Інтерфейс.
 import { state, load, put, remove, removeMany, putMany, commit, saveSettings, replaceAll, resetToDefaults, snapshot, sortAll } from './db.js';
 import * as U from './util.js';
-import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout } from './calc.js';
+import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout, ringOrder } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.2.7';
+export const APP_VERSION = '1.2.8';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -75,9 +75,10 @@ const CAT_ICONS = {
   savings: 'M5.5 4.5h13a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-13a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2zM9 11.5a3 3 0 1 0 6 0a3 3 0 1 0 -6 0zM12 8.5v-1M12 15.5v-1M6.5 18.5V20M17.5 18.5V20',
   coins: 'M3.5 9a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0zM14.4 9.9a5.5 5.5 0 1 1-4.5 4.5',
   transfer: 'M4 8.5h14l-3.5-3.5M20 15.5H6l3.5 3.5',
+  more: 'M5 4.5h4.5a.5.5 0 0 1 .5.5v4.5a.5.5 0 0 1 -.5.5H5a.5.5 0 0 1 -.5 -.5V5a.5.5 0 0 1 .5 -.5zM14.5 4.5H19a.5.5 0 0 1 .5.5v4.5a.5.5 0 0 1 -.5.5h-4.5a.5.5 0 0 1 -.5 -.5V5a.5.5 0 0 1 .5 -.5zM5 14h4.5a.5.5 0 0 1 .5.5V19a.5.5 0 0 1 -.5.5H5a.5.5 0 0 1 -.5 -.5v-4.5a.5.5 0 0 1 .5 -.5zM16.75 14v5.5M14 16.75h5.5',
   uncategorized: 'M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0 -17 0zM7.4 12a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0zM11.4 12a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0zM15.4 12a0.6 0.6 0 1 0 1.2 0a0.6 0.6 0 1 0 -1.2 0z',
 };
-const PICK_ICONS = Object.keys(CAT_ICONS).filter((k) => k !== 'transfer');
+const PICK_ICONS = Object.keys(CAT_ICONS).filter((k) => k !== 'transfer' && k !== 'more');
 // Старі категорії зберігають емодзі — показуємо замість нього відповідну лінійну іконку (дані не змінюються).
 const EMOJI_KEY = {
   '🛒': 'groceries', '🍔': 'cafe', '🍽️': 'cafe', '🍽': 'cafe', '☕': 'cafe', '🍺': 'cafe', '🍷': 'cafe', '🚌': 'transport', '🚇': 'transport',
@@ -251,8 +252,8 @@ function viewHome() {
   const s = currentSummary();
   const spent = [...s.byCat.entries()].filter(([, v]) => v.type === 'expense' && v.amount > 0)
     .sort((a, b) => b[1].amount - a[1].amount).map(([id, v]) => ({ c: cat(id) ?? NO_CAT, id, amount: v.amount }));
-  const items = spent.length > RING_MAX ? [...spent.slice(0, RING_MAX - 1),
-    { more: true, amount: spent.slice(RING_MAX - 1).reduce((t, x) => t + x.amount, 0) }] : spent;
+  const items = ringOrder(spent.length > RING_MAX ? [...spent.slice(0, RING_MAX - 1),
+    { more: true, amount: spent.slice(RING_MAX - 1).reduce((t, x) => t + x.amount, 0) }] : spent);
   const segs = items.map((x) => ({ value: x.amount, color: x.more ? 'var(--line-strong)' : catColor(x.c) }));
   const H = Math.max(392, ringH); // висота зони кільця: росте на високих екранах (fitHome)
   const L = ringLayout(items.map((x) => x.amount), { cy: H / 2, b: 146 + Math.min(50, (H - 392) / 2) });
@@ -263,7 +264,7 @@ function viewHome() {
     const pos = `left:${X(cx)};top:${y.toFixed(1)}px;--c:${segs[i].color}`;
     const amt = `<span class="ring-amt num ${up ? 'up' : ''}">${fmtMoney(x.amount, s.currency)}</span>`;
     return x.more
-      ? `<button class="ring-cat on" style="${pos}" data-a="addTx" data-type="expense" aria-label="Інші категорії, ${fmtMoney(x.amount, s.currency)}. Додати витрату"><span class="ring-ico">${catSvg('uncategorized')}</span>${amt}</button>`
+      ? `<button class="ring-cat on" style="${pos}" data-a="addTx" data-type="expense" aria-label="Інші категорії, ${fmtMoney(x.amount, s.currency)}. Додати витрату"><span class="ring-ico">${catSvg('more')}</span>${amt}</button>`
       : `<button class="ring-cat on" style="${pos}" data-a="addTx" data-type="expense" data-cat="${x.c.id}" aria-label="${esc(x.c.name)}, ${fmtMoney(x.amount, s.currency)}. Додати витрату"><span class="ring-ico">${catIco(x.c)}</span>${amt}</button>`;
   });
 
@@ -872,8 +873,24 @@ let catEd = null;
 function openCategoryEditor({ id, type = 'expense' } = {}) {
   const c = id ? cat(id) : null;
   catEd = c ? { ...c, icon: catKey(c), color: U.CAT_HEX[Math.max(catColorIdx(c), 0)] }
-    : { id: null, name: '', icon: type === 'income' ? 'coins' : 'uncategorized', type, color: U.CAT_HEX[catsOf(type).length % U.CAT_HEX.length] };
+    : { id: null, name: '', icon: type === 'income' ? 'coins' : 'uncategorized', type, color: freeColor(type), autoIcon: true };
   openSheet({ render: renderCatEditor, onClose: () => { catEd = null; } });
+}
+
+// Колір нової категорії: перший cat-01…14, не зайнятий категоріями того ж типу; якщо всі зайняті — найрідший (аудит №2, N2).
+function freeColor(type) {
+  const n = U.CAT_HEX.map(() => 0);
+  for (const c of catsOf(type)) { const i = catColorIdx(c); if (i >= 0) n[i]++; }
+  return U.CAT_HEX[n.indexOf(Math.min(...n))];
+}
+// Іконка нової категорії підбирається за назвою під час набору, поки її не обрали вручну (аудит №2, N3).
+function autoIcon(e, sh) {
+  if (!e.autoIcon) return;
+  const g = NAME_KEY.find(([re]) => re.test(e.name));
+  e.icon = g ? g[1] : e.type === 'income' ? 'coins' : 'uncategorized';
+  const tile = sh?.querySelector('.cat-tile .ico');
+  if (tile) tile.innerHTML = catSvg(e.icon);
+  sh?.querySelectorAll('.icon-grid button').forEach((b) => b.classList.toggle('sel', b.dataset.v === e.icon));
 }
 
 function renderCatEditor() {
@@ -1283,8 +1300,8 @@ const actions = {
   catTab: (d) => { ui.catTab = d.v; refreshSheet(); },
   catMove: (d) => moveCategory(d.id, +d.dir),
   editCategory: (d) => openCategoryEditor({ id: d.id, type: d.type }),
-  catType: (d) => { catEd.type = d.v; refreshSheet(); },
-  catIconPick: (d) => { catEd.icon = d.v; refreshSheet(); },
+  catType: (d) => { catEd.type = d.v; if (!catEd.id) { catEd.color = freeColor(d.v); autoIcon(catEd); } refreshSheet(); },
+  catIconPick: (d) => { catEd.icon = d.v; catEd.autoIcon = false; refreshSheet(); },
   catColor: (d) => { catEd.color = d.v; refreshSheet(); },
   catSave: () => saveCategory(),
   catDelete: () => deleteCategory(),
@@ -1334,7 +1351,7 @@ const inputs = {
   accCur: (el) => { accEd.currency = el.value; },
   accInit: (el) => { accEd.initial = el.value; },
   accExcl: (el) => { accEd.excludeFromTotal = el.checked; },
-  catName: (el) => { catEd.name = el.value; },
+  catName: (el) => { catEd.name = el.value; autoIcon(catEd, el.closest('.sheet')); },
   catIcon: (el) => { catEd.icon = el.value.trim(); const i = el.closest('.sheet').querySelector('.cat-tile .ico'); if (i) i.textContent = catEd.icon; },
   bCat: (el) => { bEd.categoryId = el.value; },
   bAmount: (el) => { bEd.amount = el.value; },

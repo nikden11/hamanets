@@ -171,3 +171,10 @@ test('ringLayout: кола не накладаються і лишаються �
     }
   }
 });
+
+test('ringOrder: великий–малий навперемінно', async () => {
+  const { ringOrder } = await import('../js/calc.js');
+  assert.deepEqual(ringOrder([9, 7, 5, 3, 1]), [9, 1, 7, 3, 5]);
+  assert.deepEqual(ringOrder([4, 2]), [4, 2]);
+  assert.deepEqual(ringOrder([]), []);
+});

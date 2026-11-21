@@ -125,6 +125,14 @@ export function categoryOrder(cats, txs, { type, today }) {
 // Розміщення кіл навколо кільця (дизайн 390×392, центр 195×196). values — суми сегментів за годинниковою
 // стрілкою від 12-ї години. Кола стоять на контурі «заокруглений прямокутник» (суперeліпс n=4, A×B)
 // навпроти середини свого сегмента; сусіди розсуваються вздовж контуру, щоб центри були не ближче за gap px.
+// Порядок сегментів на кільці: великий–малий навперемінно (1-й, останній, 2-й, передостанній…), щоб дрібні
+// сегменти стояли між великими, а не «віялом» в одному місці (аудит №2, N1). Вхід — масив за спаданням.
+export function ringOrder(items) {
+  const out = [];
+  for (let i = 0, j = items.length - 1; i <= j;) { out.push(items[i++]); if (i <= j) out.push(items[j--]); }
+  return out;
+}
+
 export function ringLayout(values, { cx = 195, cy = 196, ro = 84, a = 158, b = 146, n = 4, gap = 76 } = {}) {
   const total = values.reduce((s, v) => s + v, 0);
   if (!values.length || total <= 0) return [];
