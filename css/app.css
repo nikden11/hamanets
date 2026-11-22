@@ -127,7 +127,9 @@ svg.ci { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-wid
 }
 /* іконка без кола: лише лінійний знак кольором категорії (Денис, 2026-11-21) */
 .ring-cat.on .ring-ico { color: var(--c); }
-.ring-ico svg.ci { width: 30px; height: 30px; stroke-width: 1.75; }
+.ring-ico svg.ci { width: 30px; height: 30px; stroke-width: 2; } /* світла тема: 2px — тонка охра cat-04 на світлому тлі ледь 3:1 (аудит №3, N10) */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ring-ico svg.ci { stroke-width: 1.75; } }
+:root[data-theme="dark"] .ring-ico svg.ci { stroke-width: 1.75; }
 .ring-amt {
   position: absolute; left: 50%; top: 46px; width: 72px; margin-left: -36px; text-align: center; pointer-events: none;
   font-size: 11px; line-height: 15px; font-weight: 500; letter-spacing: .02em; color: var(--text); white-space: nowrap;

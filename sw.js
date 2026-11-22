@@ -1,5 +1,5 @@
 // Офлайн-кеш оболонки застосунку. При зміні файлів — збільшити VERSION.
-const VERSION = 'hamanets-v15';
+const VERSION = 'hamanets-v16';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/app.js', './js/db.js', './js/calc.js', './js/util.js', './js/monefy.js',

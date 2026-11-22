@@ -122,9 +122,6 @@ export function categoryOrder(cats, txs, { type, today }) {
   return cats.map((c, i) => ({ c, i, s: score(c.id) })).sort((a, b) => b.s - a.s || a.i - b.i).map((x) => x.c);
 }
 
-// Розміщення кіл навколо кільця (дизайн 390×392, центр 195×196). values — суми сегментів за годинниковою
-// стрілкою від 12-ї години. Кола стоять на контурі «заокруглений прямокутник» (суперeліпс n=4, A×B)
-// навпроти середини свого сегмента; сусіди розсуваються вздовж контуру, щоб центри були не ближче за gap px.
 // Порядок сегментів на кільці: великий–малий навперемінно (1-й, останній, 2-й, передостанній…), щоб дрібні
 // сегменти стояли між великими, а не «віялом» в одному місці (аудит №2, N1). Вхід — масив за спаданням.
 export function ringOrder(items) {
@@ -133,7 +130,14 @@ export function ringOrder(items) {
   return out;
 }
 
-export function ringLayout(values, { cx = 195, cy = 196, ro = 84, a = 158, b = 146, n = 4, gap = 76, end = 22 } = {}) {
+// Розміщення іконок навколо кільця (екранні px; cx, cy — центр діаграми, ro — її радіус). values — суми сегментів
+// за годинниковою стрілкою від 12-ї години. Іконки стоять на контурі «заокруглений прямокутник» (суперeліпс n=2.5, a×b)
+// навпроти середини свого сегмента; сусіди розсуваються вздовж контуру, щоб центри були не ближче за gap px.
+// Іконка сегмента ≥ 50% не зсувається — стоїть навпроти його середини (аудит №3, N7).
+// Лінія (d — SVG path) виходить з кільця по радіусу і входить в іконку по радіусу; якщо іконка зсунута від свого
+// сегмента більше ніж на arcFrom°, лінія йде в обхід по дузі біля кільця: що далі йти — то ближча до кільця дуга,
+// тож лінії вкладаються одна в одну без перехрещень і ніколи не заходять усередину діаграми.
+export function ringLayout(values, { cx = 195, cy = 196, ro = 74, a = 152, b = 146, n = 2.5, gap = 58, end = 22, pinShare = 0.5, arcFrom = 16 } = {}) {
   const total = values.reduce((s, v) => s + v, 0);
   if (!values.length || total <= 0) return [];
   const rad = (d) => (d * Math.PI) / 180;
@@ -144,31 +148,53 @@ export function ringLayout(values, { cx = 195, cy = 196, ro = 84, a = 158, b = 1
   for (let k = 1; k <= 720; k++) { const q = pt(rr(k / 2), k / 2); S.push(S[k - 1] + Math.hypot(q[0] - prev[0], q[1] - prev[1])); prev = q; }
   const P = S[720];
   const toLen = (d) => { const f = (((d % 360) + 360) % 360) * 2, k = Math.floor(f); return S[k] + (S[Math.min(k + 1, 720)] - S[k]) * (f - k); };
-  const toDeg = (len) => { let lo = 0, hi = 720; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (S[m] <= len) lo = m; else hi = m; } return (lo + (len - S[lo]) / ((S[hi] - S[lo]) || 1)) / 2; };
-  const mids = [];
+  const toDeg = (len) => { len = ((len % P) + P) % P; let lo = 0, hi = 720; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (S[m] <= len) lo = m; else hi = m; } return (lo + (len - S[lo]) / ((S[hi] - S[lo]) || 1)) / 2; };
+  const mids = [], pin = [];
   let acc = 0;
-  for (const v of values) { mids.push(((acc + v / 2) / total) * 360); acc += v; }
-  // розсування вздовж контуру
+  for (const v of values) { mids.push(((acc + v / 2) / total) * 360); pin.push(v / total >= pinShare); acc += v; }
+  // розсування вздовж контуру; іконка сегмента ≥ 50% стоїть навпроти його середини (N7)
   const cnt = mids.length, g = Math.min(gap, P / cnt);
   const idx = mids.map((_, i) => i).sort((i, j) => mids[i] - mids[j]);
   const p = idx.map((i) => toLen(mids[i]));
-  for (let it = 0; it < 400 && cnt > 1; it++) {
+  const fix = idx.map((i) => pin[i]);
+  for (let it = 0; it < 600 && cnt > 1; it++) {
     let moved = false;
     for (let k = 0; k < cnt; k++) {
-      const last = k === cnt - 1, d = (last ? p[0] + P : p[k + 1]) - p[k];
-      if (d < g - 0.01) { const s = (g - d) / 2; p[k] -= s; if (last) p[0] += s; else p[k + 1] += s; moved = true; }
+      const j = (k + 1) % cnt, last = j === 0, d = (last ? p[0] + P : p[j]) - p[k];
+      if (d >= g - 0.01 || (fix[k] && fix[j])) continue;
+      const s = g - d;
+      if (fix[k]) p[j] += s; else if (fix[j]) p[k] -= s; else { p[k] -= s / 2; p[j] += s / 2; }
+      moved = true;
     }
     if (!moved) break;
   }
   const pos = [];
-  idx.forEach((i, k) => { pos[i] = toDeg(((p[k] % P) + P) % P); });
+  idx.forEach((i, k) => { pos[i] = toDeg(p[k]); });
+  const f = (q) => q.map((v) => v.toFixed(1)).join(',');
+  const delta = (i) => ((pos[i] - mids[i] + 540) % 360) - 180; // >0 — іконка за годинниковою
+  // лінії, що йдуть в обхід: що далі йти — то ближче до кільця (вкладення без перехрещень)
+  const arcR = mids.map((_, i) => {
+    const d = delta(i);
+    if (Math.abs(d) <= arcFrom) return 0;
+    const deeper = mids.filter((_, j) => j !== i && Math.sign(delta(j)) === Math.sign(d) && Math.abs(delta(j)) > arcFrom && Math.abs(delta(j)) > Math.abs(d)).length;
+    return ro + 9 + 4 * deeper;
+  });
   return mids.map((m, i) => {
     const [x, y] = pt(rr(pos[i]), pos[i]);
-    // лінія — плавна крива (без зламу): виходить з кільця по радіусу і м'яко повертає до іконки
-    const p1 = pt(ro + 2, m);
-    const c = pt(ro + 2 + 0.3 * Math.hypot(x - p1[0], y - p1[1]), m);
-    const dx = x - c[0], dy = y - c[1], dl = Math.hypot(dx, dy) || 1;
-    const p3 = [x - (dx / dl) * end, y - (dy / dl) * end];
-    return { x, y, up: y < cy - 70, line: [p1, c, p3] };
+    const ti = pos[i], ri = rr(ti), p0 = pt(ro + 2, m), p3 = pt(ri - end, ti);
+    let d;
+    if (!arcR[i]) {
+      // крива: виходить з кільця по радіусу і входить в іконку по радіусу
+      const span = ri - end - ro - 2;
+      d = `M${f(p0)}C${f(pt(ro + 2 + 0.45 * span, m))} ${f(pt(ro + 2 + 0.55 * span, ti))} ${f(p3)}`;
+    } else {
+      const R = arcR[i], s = Math.sign(delta(i)), tau = 12;
+      const q1 = pt(R, m + s * tau), q2 = pt(R, ti - s * tau);
+      const sweep = Math.abs(delta(i)) - 2 * tau;
+      d = `M${f(p0)}C${f(pt(ro + 2 + 0.55 * (R - ro - 2), m))} ${f(pt(R, m + s * tau * 0.45))} ${f(q1)}`
+        + `A${R},${R} 0 ${sweep > 180 ? 1 : 0} ${s > 0 ? 1 : 0} ${f(q2)}`
+        + `C${f(pt(R, ti - s * tau * 0.45))} ${f(pt(R + 0.45 * (ri - end - R), ti))} ${f(p3)}`;
+    }
+    return { x, y, up: y < cy - 70, d };
   });
 }

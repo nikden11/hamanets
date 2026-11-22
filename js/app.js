@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout, ringOrder } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.3.1';
+export const APP_VERSION = '1.3.2';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -197,7 +197,8 @@ function moveRing(before) {
 // Нестача місця спершу забирається з висоти зони (контур кіл пласкішає, до RING_MIN_H), і лише потім —
 // масштабом, не дрібніше 0.85, щоб коло лишалось ≥ 44px (аудит №2, N5). Поки відкрита шторка — нічого не перераховуємо (N4).
 const RING_MIN_H = 340;
-let ringH = 392, ringK = 1, fitting = false;
+let ringH = 392, ringW = 390, ringK = 1, fitting = false;
+const ringWidth = () => Math.min(430, document.documentElement.clientWidth || 390);
 function applyRingK(ring = $('#ring')) {
   if (!ring) return;
   ring.style.transform = ringK < 1 ? `scale(${ringK.toFixed(3)})` : '';
@@ -210,7 +211,7 @@ function fitHome() {
   ringK = 1; applyRingK(ring);
   const free = $('.tabbar').getBoundingClientRect().top - $('.big-actions').getBoundingClientRect().bottom - 12;
   const want = Math.max(RING_MIN_H, Math.min(900, Math.round(ringH + free)));
-  if (Math.abs(want - ringH) > 2) { ringH = want; fitting = true; render(); fitting = false; return fitHome(); }
+  if (Math.abs(want - ringH) > 2 || ringWidth() !== ringW) { ringH = want; fitting = true; render(); fitting = false; return fitHome(); }
   if (free >= 0) return;
   ringK = Math.max(0.85, (ringH + free) / ringH);
   applyRingK(ring);
@@ -301,17 +302,16 @@ function viewHome() {
   const items = ringOrder(spent.length > RING_MAX ? [...spent.slice(0, RING_MAX - 1),
     { more: true, amount: spent.slice(RING_MAX - 1).reduce((t, x) => t + x.amount, 0) }] : spent);
   const segs = items.map((x) => ({ value: x.amount, color: x.more ? 'var(--line-strong)' : catColor(x.c) }));
-  const H = Math.max(RING_MIN_H, ringH); // висота зони кільця: росте на високих екранах, пласкішає на низьких (fitHome)
-  // b ≤ H/2 − 68: над верхнім колом лишається ≥ 24px під його суму (аудит №2, N4)
-  // (на найнижчих екранах — до 12px, плавно)
+  const H = Math.max(RING_MIN_H, ringH); // висота зони кільця (fitHome): зайва висота йде в поля зверху й знизу
+  const W = ringW = ringWidth();
+  // контур іконок прив'язаний до діаграми, а не до висоти екрана (аудит №3, N8): b ≤ 146, a ≤ 152;
+  // над верхньою іконкою ≥ 24px під її суму (N4; на найнижчих екранах — до 12px, плавно)
   const top = 56 + 12 * Math.min(1, Math.max(0, (H - 340) / 52));
-  const L = ringLayout(items.map((x) => x.amount), { ro: DONUT / 2, cy: H / 2, b: Math.min(146 + Math.min(50, (H - 392) / 2), H / 2 - top) });
-  const X = (v) => `${((v / 390) * 100).toFixed(2)}%`;
-  const f = (q) => q.map((v) => v.toFixed(1)).join(',');
-  const lines = L.map((l, i) => `<path d="M${f(l.line[0])}Q${f(l.line[1])} ${f(l.line[2])}" style="stroke:${segs[i].color}"/>`).join('');
+  const L = ringLayout(items.map((x) => x.amount), { ro: DONUT / 2, cx: W / 2, cy: H / 2, a: Math.min(152, W / 2 - 38), b: Math.min(146, H / 2 - top) });
+  const lines = L.map((l, i) => `<path d="${l.d}" style="stroke:${segs[i].color}"/>`).join('');
   const cells = items.map((x, i) => {
     const { x: cx, y, up } = L[i];
-    const pos = `left:${X(cx)};top:${y.toFixed(1)}px;--c:${segs[i].color}`;
+    const pos = `left:${cx.toFixed(1)}px;top:${y.toFixed(1)}px;--c:${segs[i].color}`;
     const amt = `<span class="ring-amt num ${up ? 'up' : ''}">${fmtMoney(x.amount, s.currency)}</span>`;
     return x.more
       ? `<button class="ring-cat on" style="${pos}" data-a="addTx" data-type="expense" aria-label="Інші категорії, ${fmtMoney(x.amount, s.currency)}. Додати витрату"><span class="ring-ico">${catSvg('more')}</span>${amt}</button>`
@@ -320,13 +320,13 @@ function viewHome() {
 
   return `<header class="top">${headerTop()}${periodRow()}</header>
   <section class="ring" id="ring" style="height:${H}px">
-    <svg class="ring-lines" viewBox="0 0 390 ${H}" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
+    <svg class="ring-lines" viewBox="0 0 ${W} ${H}" aria-hidden="true">${lines}</svg>
     <div class="ring-center" style="top:${H / 2 - DONUT / 2}px" data-a="goOps" role="button" aria-label="Операції за період">
       ${donutSvg(segs, DONUT, 11)}
       <div class="donut-text">${s.expense || s.income ? `
         <div class="sub">ВИТРАТИ</div>
         <div class="big-sum num exp">${fmtMoney(-s.expense, s.currency)}</div>
-        <div class="small-sum num inc">${fmtMoney(s.income, s.currency, { sign: true })}</div>` : `
+        ${s.income > 0 ? `<div class="small-sum num inc">${fmtMoney(s.income, s.currency, { sign: true })}</div>` : ''}` : `
         <div class="big-sum num muted">${fmtMoney(0, s.currency)}</div>
         <div class="hint0">Додайте першу витрату</div>`}
       </div>
