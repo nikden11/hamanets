@@ -164,24 +164,28 @@ svg.ci { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-wid
 .donut-text .small-sum { font-size: 13px; line-height: 18px; font-weight: 500; }
 .donut-text .hint0 { font-size: 13px; line-height: 18px; color: var(--muted); max-width: 108px; }
 
-.big-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 16px 4px; }
+.big-actions { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; padding: 12px 16px 4px; }
 .big {
-  height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  height: 56px; border-radius: 28px; display: flex; align-items: center; justify-content: center; gap: 8px;
   font-weight: 600; font-size: 17px; line-height: 22px;
 }
 .big svg.i { width: 20px; height: 20px; stroke-width: 2; }
-.big.minus { background: var(--exp); color: var(--on-exp); }
-.big.plus { background: var(--inc); color: var(--on-inc); }
+.big.minus { background: var(--accent); color: var(--on-accent); box-shadow: 0 8px 20px rgba(29, 53, 87, .28); }
+.big.plus { color: var(--text); font-weight: 500; }
 
 
 .row.static { min-height: 48px; }
 .balance-bar {
-  margin: 4px 16px 0; width: calc(100% - 32px); display: flex; align-items: center; justify-content: space-between;
-  height: 48px; padding: 0 12px 0 16px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+  margin: 4px 16px 0; width: calc(100% - 32px); display: flex; flex-direction: column; justify-content: center; gap: 4px; text-align: left;
+  min-height: 56px; padding: 12px 14px 12px 18px; background: var(--card); border-radius: 28px; box-shadow: var(--shadow);
 }
-.balance-bar > span:first-child { color: var(--muted); }
-.balance-bar b { font-weight: 600; }
+.balance-bar .bc-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.balance-bar .bc-top > span:first-child { font-size: 15px; font-weight: 500; }
+.balance-bar b { font-weight: 600; font-size: 20px; line-height: 26px; }
 .balance-bar .r { display: flex; align-items: center; gap: 4px; }
+.balance-bar .bc-sub { display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 18px; color: var(--muted); }
+.pace-ico { width: 14px; height: 14px; stroke-width: 2.4; flex: none; }
+.pace-ico.inc { color: var(--inc); } .pace-ico.warn { color: var(--warn); }
 .balance-bar .r svg.i { width: 20px; height: 20px; color: var(--muted); }
 
 /* ---------- Картки і списки ---------- */
@@ -425,7 +429,10 @@ button.row:active, .row.tap:active { background: var(--card-2); }
   :root { --tab-h: 56px; --tab-gap: max(10px, calc(var(--safe-bot) - 12px)); }
   .top { padding-top: calc(var(--safe-top) + 6px); padding-bottom: 2px; }
   .big-title { font-size: 28px; line-height: 34px; margin: 0 20px 2px; }
-  .balance-bar { min-height: 40px; height: 40px; }
+  .balance-bar { min-height: 40px; padding-top: 6px; padding-bottom: 6px; }
+  .balance-bar b { font-size: 17px; line-height: 22px; }
+  .big-actions { gap: 8px; }
+  .balance-bar .bc-sub { display: none; } /* на найнижчих екранах — лише баланс, щоб кнопки вмістились */
   .big-actions { padding-top: 8px; }
   .big-actions .big { height: 48px; min-height: 48px; }
 }

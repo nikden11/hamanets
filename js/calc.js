@@ -198,3 +198,23 @@ export function ringLayout(values, { cx = 195, cy = 196, ro = 74, a = 152, b = 1
     return { x, y, up: y < cy - 70, d };
   });
 }
+
+// Порівняння з минулим місяцем «на той самий день» (концепт «Скло», Огляд; ідея Copilot/Cleo).
+// month — 'YYYY-MM' обраного місяця; today — 'YYYY-MM-DD'. Для поточного місяця беремо витрати з 1-го до сьогодні
+// і з 1-го до того ж дня минулого місяця (день обрізається до довжини минулого місяця); для минулих місяців — весь місяць.
+// Повертає null, якщо місяць у майбутньому або в минулому місяці не було жодної витрати.
+export function monthPace({ txs, accounts, accountId, month, today, base, rates }) {
+  const [y, m] = month.split('-').map(Number);
+  const pad = (n) => String(n).padStart(2, '0');
+  const days = (yy, mm) => new Date(yy, mm, 0).getDate();
+  const py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1;
+  const cur = today.slice(0, 7) === month;
+  if (!cur && month > today.slice(0, 7)) return null;
+  const day = cur ? Number(today.slice(8, 10)) : days(y, m);
+  const pday = cur ? Math.min(day, days(py, pm)) : days(py, pm);
+  const sum = (start, end) => summarize({ txs, accounts, accountId, start, end, base, rates }).expense;
+  const prevStart = `${py}-${pad(pm)}-01`;
+  if (!sum(prevStart, `${py}-${pad(pm)}-${pad(days(py, pm))}`)) return null;
+  const now = sum(`${month}-01`, `${month}-${pad(day)}`), prev = sum(prevStart, `${py}-${pad(pm)}-${pad(pday)}`);
+  return { now, prev, diff: now - prev, day: cur ? pday : null, prevMonth: pm - 1 };
+}

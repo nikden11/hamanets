@@ -188,3 +188,20 @@ test('ringOrder: великий–малий навперемінно', async ()
   assert.deepEqual(ringOrder([4, 2]), [4, 2]);
   assert.deepEqual(ringOrder([]), []);
 });
+
+test('monthPace: витрати до того ж дня минулого місяця', async () => {
+  const { monthPace } = await import('../js/calc.js');
+  const accounts = [{ id: 'a', currency: 'UAH' }];
+  const tx = (date, amount) => ({ id: date + amount, type: 'expense', amount, accountId: 'a', date });
+  const txs = [tx('2026-10-05', 1000), tx('2026-10-20', 500), tx('2026-10-25', 9000), tx('2026-11-03', 700), tx('2026-11-21', 100)];
+  const o = { txs, accounts, accountId: null, base: 'UAH', rates: {} };
+  // поточний місяць: 1–22 листопада (800) проти 1–22 жовтня (1500)
+  assert.deepEqual(monthPace({ ...o, month: '2026-11', today: '2026-11-22' }), { now: 800, prev: 1500, diff: -700, day: 22, prevMonth: 9 });
+  // минулий місяць цілком: жовтень (10500) проти вересня — у вересні витрат немає → null
+  assert.equal(monthPace({ ...o, month: '2026-10', today: '2026-11-22' }), null);
+  // 31 березня → лютий обрізається до 28
+  const t2 = [tx('2026-02-28', 300), tx('2026-03-30', 200)];
+  assert.equal(monthPace({ ...o, txs: t2, month: '2026-03', today: '2026-03-31' }).day, 28);
+  // майбутній місяць
+  assert.equal(monthPace({ ...o, month: '2026-12', today: '2026-11-22' }), null);
+});

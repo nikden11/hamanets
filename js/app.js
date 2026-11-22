@@ -1,10 +1,10 @@
 // Гаманець — особистий облік витрат. Інтерфейс.
 import { state, load, put, remove, removeMany, putMany, commit, saveSettings, replaceAll, resetToDefaults, snapshot, sortAll } from './db.js';
 import * as U from './util.js';
-import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout, ringOrder } from './calc.js';
+import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout, ringOrder, monthPace } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '1.4.1';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -350,14 +350,27 @@ function viewHome() {
   <button class="balance-bar" data-a="openSummary">${balanceInner(s)}</button>
   <div class="big-actions">
     <button class="big minus" data-a="addTx" data-type="expense">${ic('minus')} Витрата</button>
-    <button class="big plus" data-a="addTx" data-type="income">${ic('plus')} Дохід</button>
+    <button class="big plus glass" data-a="addTx" data-type="income">${ic('plus')} Дохід</button>
   </div>`;
 }
 
 // Баланс за період = доходи − витрати (не залишок на рахунках).
 function balanceInner(s) {
   const b = s.income - s.expense;
-  return `<span>${ui.period.kind === 'month' ? 'Баланс за місяць' : 'Баланс за період'}</span><span class="r"><b class="num ${b < 0 ? 'exp' : 'inc'}">${fmtMoney(b, s.currency, { sign: true })}</b>${ic('chevR')}</span>`;
+  return `<span class="bc-top"><span>${ui.period.kind === 'month' ? 'Баланс за місяць' : 'Баланс за період'}</span><span class="r"><b class="num ${b < 0 ? 'exp' : 'inc'}">${fmtMoney(b, s.currency, { sign: true })}</b>${ic('chevR')}</span></span>${paceLine(s)}`;
+}
+// «На 1 830 ₴ менше, ніж у жовтні на 22-ге» — витрати проти минулого місяця на той самий день (концепт «Скло»)
+const MONTHS_LOC = ['січні', 'лютому', 'березні', 'квітні', 'травні', 'червні', 'липні', 'серпні', 'вересні', 'жовтні', 'листопаді', 'грудні'];
+function paceLine(s) {
+  if (ui.period.kind !== 'month') return '';
+  const p = monthPace({ txs: state.txs, accounts: state.accounts, accountId: ui.accountId, month: range().start.slice(0, 7), today: U.today(), base: base(), rates: rates() });
+  if (!p) return '';
+  const ord = (d) => (d % 100 >= 11 && d % 100 <= 14 ? 'те' : ({ 1: 'ше', 2: 'ге', 3: 'тє', 7: 'ме', 8: 'ме' })[d % 10] ?? 'те'); // 22-ге, 21-ше, 23-тє
+  const when = `у ${MONTHS_LOC[p.prevMonth]}${p.day ? ` на ${p.day}-${ord(p.day)}` : ''}`;
+  const less = p.diff < 0;
+  const txt = p.diff === 0 ? `Стільки ж, як ${when}` : `На ${fmtMoney(Math.abs(p.diff), s.currency)} ${less ? 'менше' : 'більше'}, ніж ${when}`;
+  const arrow = `<svg class="i pace-ico ${less ? 'inc' : 'warn'}" viewBox="0 0 24 24" aria-hidden="true"><path d="${less ? 'M12 5v14M6 13l6 6 6-6' : 'M12 19V5M6 11l6-6 6 6'}"/></svg>`;
+  return `<span class="bc-sub">${p.diff === 0 ? '' : arrow}<span class="num">${txt}</span></span>`;
 }
 
 // Підсумок періоду (шторка): доходи/витрати, розбивка за категоріями, 6 місяців. Відкривається з «Балансу» і з тосту після запису.
