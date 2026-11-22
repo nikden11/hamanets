@@ -7,13 +7,13 @@
   src: url(../fonts/ibm-plex-sans-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 /* Гаманець — стилі за дизайн-системою «Чорнило» (кольори, шрифт, відступи — з токенів DS). */
 :root {
-  --bg: #F3F4F7;          /* paper */
+  --bg: #F2F3F7;          /* paper (Скло) */
   --card: #FFFFFF;        /* surface */
-  --card-2: #E8EAF0;      /* surface-sunken */
-  --idle: #E8EAF0;
-  --text: #161A22;        /* ink */
-  --muted: #5A6170;       /* ink-muted */
-  --line: #E1E4EA;
+  --card-2: #E6E9EF;      /* surface-sunken */
+  --idle: #E3E6EE;        /* доріжка кільця */
+  --text: #0F1B2D;        /* ink */
+  --muted: #566072;       /* ink-muted */
+  --line: #E6E9EF;
   --line-strong: #868D9A;
   --accent: #1D3557;      /* brand */
   --on-accent: #FFFFFF;
@@ -22,13 +22,17 @@
   --mark: #1D3557;
   --exp: #A64B3A; --on-exp: #FFFFFF; --exp-soft: #F5E5E1;
   --warn: #A8601A;        /* warning: бюджет ≥ 85% */
-  --inc: #24727A; --on-inc: #FFFFFF; --inc-soft: #DFEFF0;
+  --inc: #2F7A5B; --on-inc: #FFFFFF; --inc-soft: #E0F0E8;
   --on-cat: #FFFFFF;
   --overlay: rgba(17, 19, 18, .40);
   --seg-on-color: rgba(255, 255, 255, .18);
   --cat-01: #2E4A73; --cat-02: #B07040; --cat-03: #4F8A8B; --cat-04: #A68A3E; --cat-05: #7D5E8F; --cat-06: #6C86A8; --cat-07: #6E8A7E;
   --cat-08: #3F6E5A; --cat-09: #7A7468; --cat-10: #5A5F8A; --cat-11: #A86E58; --cat-12: #62683A; --cat-13: #A35A7E; --cat-14: #4B5563;
-  --shadow: 0 1px 2px rgba(27, 30, 28, .04), 0 2px 8px rgba(27, 30, 28, .04);
+  --shadow: 0 1px 2px rgba(15, 27, 45, .05);
+  /* Скло (концепт «Скло», iOS 27 Liquid Glass) */
+  --glass: rgba(255, 255, 255, .62);
+  --glass-shadow: inset 0 .5px 0 rgba(255, 255, 255, .95), inset 0 0 0 .5px rgba(15, 27, 45, .08), 0 10px 30px rgba(15, 27, 45, .12);
+  --tab-on: rgba(29, 53, 87, .08);
   --sheet-shadow: 0 -8px 32px rgba(27, 30, 28, .10);
   --radius: 16px;
   --font: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
@@ -39,23 +43,27 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0E1117; --card: #171B23; --card-2: #21262F; --idle: #21262F; --text: #E9ECF2; --muted: #9AA2B1; --line: #2A303B; --line-strong: #6B7383;
-    --accent: #9DB7DD; --on-accent: #0E1726; --accent-soft: #1B2537; --gold: #D9A441; --mark: #F3F4F7;
-    --warn: #E9A05C; --exp: #E8917F; --on-exp: #1A0D0A; --exp-soft: #36211D; --inc: #7CC7CC; --on-inc: #0A1A1B; --inc-soft: #16302F; --on-cat: #0E1117;
+    --bg: #0B111B; --card: #141C28; --card-2: #1C2533; --idle: #1C2533; --text: #EEF2F8; --muted: #A3AEBF; --line: #1C2533; --line-strong: #6B7383;
+    --accent: #A8C3EA; --on-accent: #0B111B; --accent-soft: #1B2537; --gold: #D9A441; --mark: #F3F4F7;
+    --warn: #E9A05C; --exp: #E8917F; --on-exp: #1A0D0A; --exp-soft: #36211D; --inc: #6CC59A; --on-inc: #0B111B; --inc-soft: #15302A; --on-cat: #0E1117;
     --overlay: rgba(0, 0, 0, .55); --seg-on-color: rgba(0, 0, 0, .16);
     --cat-01: #8FA8CF; --cat-02: #DB9C6E; --cat-03: #8CC4C4; --cat-04: #D6BC72; --cat-05: #B9A0CB; --cat-06: #A3B9D6; --cat-07: #A9C2B7;
     --cat-08: #8DBBA6; --cat-09: #B5AEA1; --cat-10: #A3A7D4; --cat-11: #D9A48D; --cat-12: #AEB47B; --cat-13: #D99AB8; --cat-14: #A7B0BE;
-    --shadow: none; --sheet-shadow: 0 -8px 32px rgba(0, 0, 0, .5); color-scheme: dark;
+    --shadow: inset 0 0 0 .5px rgba(255, 255, 255, .08); --sheet-shadow: 0 -8px 32px rgba(0, 0, 0, .5); color-scheme: dark;
+    --glass: rgba(38, 48, 64, .55); --tab-on: rgba(255, 255, 255, .12);
+    --glass-shadow: inset 0 .5px 0 rgba(255, 255, 255, .22), inset 0 0 0 .5px rgba(255, 255, 255, .10), 0 10px 30px rgba(0, 0, 0, .45);
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0E1117; --card: #171B23; --card-2: #21262F; --idle: #21262F; --text: #E9ECF2; --muted: #9AA2B1; --line: #2A303B; --line-strong: #6B7383;
-  --accent: #9DB7DD; --on-accent: #0E1726; --accent-soft: #1B2537; --gold: #D9A441; --mark: #F3F4F7;
-  --warn: #E9A05C; --exp: #E8917F; --on-exp: #1A0D0A; --exp-soft: #36211D; --inc: #7CC7CC; --on-inc: #0A1A1B; --inc-soft: #16302F; --on-cat: #0E1117;
+  --bg: #0B111B; --card: #141C28; --card-2: #1C2533; --idle: #1C2533; --text: #EEF2F8; --muted: #A3AEBF; --line: #1C2533; --line-strong: #6B7383;
+  --accent: #A8C3EA; --on-accent: #0B111B; --accent-soft: #1B2537; --gold: #D9A441; --mark: #F3F4F7;
+  --warn: #E9A05C; --exp: #E8917F; --on-exp: #1A0D0A; --exp-soft: #36211D; --inc: #6CC59A; --on-inc: #0B111B; --inc-soft: #15302A; --on-cat: #0E1117;
   --overlay: rgba(0, 0, 0, .55); --seg-on-color: rgba(0, 0, 0, .16);
   --cat-01: #8FA8CF; --cat-02: #DB9C6E; --cat-03: #8CC4C4; --cat-04: #D6BC72; --cat-05: #B9A0CB; --cat-06: #A3B9D6; --cat-07: #A9C2B7;
   --cat-08: #8DBBA6; --cat-09: #B5AEA1; --cat-10: #A3A7D4; --cat-11: #D9A48D; --cat-12: #AEB47B; --cat-13: #D99AB8; --cat-14: #A7B0BE;
-  --shadow: none; --sheet-shadow: 0 -8px 32px rgba(0, 0, 0, .5); color-scheme: dark;
+  --shadow: inset 0 0 0 .5px rgba(255, 255, 255, .08); --sheet-shadow: 0 -8px 32px rgba(0, 0, 0, .5); color-scheme: dark;
+    --glass: rgba(38, 48, 64, .55); --tab-on: rgba(255, 255, 255, .12);
+    --glass-shadow: inset 0 .5px 0 rgba(255, 255, 255, .22), inset 0 0 0 .5px rgba(255, 255, 255, .10), 0 10px 30px rgba(0, 0, 0, .45);
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; } /* без зуму подвійним тапом */
@@ -80,28 +88,41 @@ svg.ci { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-wid
 .exp { color: var(--exp); }
 .inc { color: var(--inc); }
 
-#app { max-width: 520px; margin: 0 auto; min-height: 100vh; padding-bottom: calc(84px + var(--safe-bot)); }
+#app { max-width: 520px; margin: 0 auto; min-height: 100vh; padding-bottom: calc(var(--tab-h) + var(--tab-gap) + 16px); }
+:root { --tab-h: 64px; --tab-gap: max(16px, calc(var(--safe-bot) - 12px)); } /* таббар-капсула: висота і відступ від низу */
+/* Скло: напівпрозорий фон + розмиття того, що під ним (iOS 27 Liquid Glass) */
+.glass { background: var(--glass); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); }
 
 /* ---------- Шапка ---------- */
 .top {
-  position: sticky; top: 0; z-index: 5; background: var(--bg);
-  padding: calc(var(--safe-top) + 6px) 16px 4px;
+  position: sticky; top: 0; z-index: 5; padding: calc(var(--safe-top) + 10px) 16px 6px;
+  transition: background-color .2s, box-shadow .2s;
 }
+/* контент прокрутився під кнопки — однорідна скляна смуга, щоб кнопки читались (iOS 27) */
+.top.scrolled { background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); box-shadow: 0 .5px 0 var(--line); }
 .top-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }
-.top-title { font-size: 28px; line-height: 34px; font-weight: 600; letter-spacing: -.02em; }
-.brand { display: flex; align-items: center; gap: 8px; font-size: 17px; line-height: 22px; font-weight: 600; }
-.brand .mark { width: 22px; height: 22px; transform: rotate(-90deg); }
-.brand .mark circle { fill: none; stroke-width: 128; }
+.top-row .grp { display: flex; gap: 8px; align-items: center; }
+.pill { display: flex; align-items: center; height: 44px; border-radius: 22px; }
+.pill .icon-btn { width: 44px; height: 44px; }
+.pill .icon-btn:active { background: transparent; }
+.pill .icon-btn[disabled] { opacity: .3; }
+.pill-mid { font-size: 15px; line-height: 20px; font-weight: 500; padding: 0 2px; }
+.pill-mid.btn-mid { display: inline-flex; align-items: center; gap: 4px; height: 44px; padding: 0 6px; }
+.pill-mid svg.i { width: 16px; height: 16px; color: var(--muted); stroke-width: 2; }
+.icon-btn.glass:active { background: var(--glass); filter: brightness(.94); }
+/* великий заголовок (iOS): 34/40, letter-spacing −0.5 */
+.big-title { margin: 2px 20px 6px; font-size: 34px; line-height: 40px; font-weight: 600; letter-spacing: -.5px; }
+.big-title-btn { display: inline-flex; align-items: center; gap: 6px; font: inherit; letter-spacing: inherit; color: inherit; min-height: 44px; }
+.big-title-btn svg.i { width: 20px; height: 20px; color: var(--muted); stroke-width: 2.2; }
 .switch { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
 .acc-switch {
-  display: inline-flex; align-items: center; gap: 6px; font-weight: 500; font-size: 16px; height: 36px;
-  padding: 0 14px; border-radius: 999px; background: var(--card); box-shadow: var(--shadow); max-width: 70%;
+  display: inline-flex; align-items: center; gap: 6px; font-weight: 500; font-size: 16px; height: 44px;
+  padding: 0 14px; border-radius: 999px; max-width: 70%;
 }
 .acc-switch svg.i { width: 18px; height: 18px; color: var(--muted); }
 .acc-switch span.n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.icon-btn { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--text); }
+.icon-btn { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--text); flex: none; }
 .icon-btn:active { background: var(--card-2); }
-.top-row .icon-btn:last-child { margin-right: -10px; }
 .period-row { display: flex; align-items: center; justify-content: space-between; }
 .period-row .icon-btn:first-child { margin-left: -10px; }
 .period-row .icon-btn:last-child { margin-right: -10px; }
@@ -259,13 +280,17 @@ button.row:active, .row.tap:active { background: var(--card-2); }
 
 /* ---------- Нижнє меню ---------- */
 .tabbar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; justify-content: center;
-  background: color-mix(in srgb, var(--card) 88%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid var(--line); padding-bottom: var(--safe-bot);
+  position: fixed; left: 0; right: 0; bottom: var(--tab-gap); z-index: 10; display: flex; justify-content: center;
+  padding: 0 16px; pointer-events: none;
 }
-.tabbar-in { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; width: 100%; max-width: 520px; }
-.tab { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 6px; font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: .02em; color: var(--muted); }
-.tab.on { color: var(--accent); font-weight: 600; }
+/* плаваюча скляна капсула: відступи 16, висота 64, радіус 32, padding 4 */
+.tabbar-in {
+  pointer-events: auto; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; width: 100%; max-width: 488px;
+  height: var(--tab-h); border-radius: 32px; padding: 4px;
+}
+.tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 28px; font-size: 10px; line-height: 13px; font-weight: 500; color: var(--text); }
+.tab svg.i { width: 24px; height: 24px; }
+.tab.on { color: var(--accent); font-weight: 600; background: var(--tab-on); }
 
 /* ---------- Шторки (bottom sheets) ---------- */
 .sheet-wrap { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
@@ -383,7 +408,9 @@ button.row:active, .row.tap:active { background: var(--card-2); }
 .big.pressed, .ok-btn.pressed, .btn.pressed { filter: brightness(.82); }
 .row.pressed, .budget.pressed, .balance-bar.pressed, .chip.pressed, .period-label.pressed, .icon-btn.pressed,
 .seg button.pressed, .icon-grid button.pressed { background-color: var(--accent-soft); }
-.tab.pressed { color: var(--accent); background: var(--accent-soft); }
+.tab.pressed { color: var(--accent); background: var(--tab-on); }
+.big-title-btn.pressed { opacity: .6; }
+.btn-mid.pressed { opacity: .6; }
 .ed-types button.pressed, .ed-top .icon-btn.pressed { background: var(--seg-on-color); }
 .ring-center.pressed svg { opacity: .7; }
 .color-grid button.pressed { outline: 3px solid var(--accent); outline-offset: 2px; }
@@ -395,6 +422,9 @@ button.row:active, .row.tap:active { background: var(--card-2); }
 
 /* Дуже низькі екрани (iPhone SE 1-го покоління): кнопки Огляду трохи нижчі, щоб кола лишались ≥ 44px (аудит №2, N5) */
 @media (max-height: 600px) {
+  :root { --tab-h: 56px; --tab-gap: max(10px, calc(var(--safe-bot) - 12px)); }
+  .top { padding-top: calc(var(--safe-top) + 6px); padding-bottom: 2px; }
+  .big-title { font-size: 28px; line-height: 34px; margin: 0 20px 2px; }
   .balance-bar { min-height: 40px; height: 40px; }
   .big-actions { padding-top: 8px; }
   .big-actions .big { height: 48px; min-height: 48px; }

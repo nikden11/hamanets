@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout, ringOrder } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.3.2';
+export const APP_VERSION = '1.4.0';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -221,9 +221,13 @@ function fitHome() {
 let refitT = 0;
 function refit() { clearTimeout(refitT); refitT = setTimeout(() => { if (ui.tab === 'home' && !sheets.length) fitHome(); }, 60); }
 addEventListener('resize', refit);
+// iOS 27: коли контент заходить під кнопки шапки — під ними з'являється скляна смуга
+addEventListener('scroll', () => { $('.top')?.classList.toggle('scrolled', scrollY > 4); }, { passive: true });
 addEventListener('orientationchange', refit);
 addEventListener('pageshow', refit);
 visualViewport?.addEventListener('resize', refit);
+// iOS 27: коли контент заходить під кнопки шапки — під ними з'являється скляна смуга
+addEventListener('scroll', () => { $('.top')?.classList.toggle('scrolled', scrollY > 4); }, { passive: true });
 document.fonts?.addEventListener?.('loadingdone', refit);
 document.fonts?.ready.then(refit);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refit(); });
@@ -241,31 +245,41 @@ function applyTheme() {
 function tabbar() {
   // Активна вкладка — заповнена іконка + жирніший підпис (самого кольору в темній темі замало, аудит 2.1)
   const t = (id, icon, label) => `<button class="tab ${ui.tab === id ? 'on' : ''}" data-a="tab" data-id="${id}" ${ui.tab === id ? 'aria-current="page"' : ''}>${ic(ui.tab === id ? icon + 'F' : icon)}<span>${label}</span></button>`;
-  return `<nav class="tabbar"><div class="tabbar-in">
+  return `<nav class="tabbar"><div class="tabbar-in glass">
     ${t('home', 'pie', 'Огляд')}${t('ops', 'list', 'Операції')}${t('stats', 'bars', 'Статистика')}${t('budgets', 'target', 'Бюджети')}${multi() ? t('accounts', 'card', 'Рахунки') : ''}
   </div></nav>`;
 }
 
-// Огляд: знак + «Гаманець» і налаштування; інші екрани — заголовок. Чип рахунку — лише в режимі кількох рахунків.
-function headerTop(title = '') {
+// Шапка «Скло» (iOS 27): угорі скляні кнопки 44px, нижче — великий заголовок 34px.
+// left/right — HTML кнопок; title — текст заголовка; titleAct — дія дотику до заголовка (тоді зі стрілкою ⌄).
+function glassHeader({ left = '', right = '', title = '', titleAct = '' }) {
+  const t = titleAct ? `<button class="big-title-btn" data-a="${titleAct}">${title}${ic('chevD')}</button>` : title;
+  return `<header class="top"><div class="top-row"><div class="grp">${left}</div><div class="grp">${right}</div></div></header>
+  <h1 class="big-title">${t}</h1>`;
+}
+const glassBtn = (act, icon, label, extra = '') => `<button class="icon-btn glass" data-a="${act}" ${extra} aria-label="${label}">${ic(icon)}</button>`;
+// скляна капсула ‹ mid › (перемикач періоду)
+const glassNav = (act, mid = '', { prev = true, next = true } = {}) => `<div class="glass pill">
+    <button class="icon-btn" data-a="${act}" data-dir="-1" ${prev ? '' : 'disabled'} aria-label="Попередній">${ic('chevL')}</button>
+    ${mid}
+    <button class="icon-btn" data-a="${act}" data-dir="1" ${next ? '' : 'disabled'} aria-label="Наступний">${ic('chevR')}</button></div>`;
+// Чип рахунку — лише в режимі кількох рахунків.
+function accSwitch() {
+  if (!multi()) return '';
   const a = acc(ui.accountId);
   const label = a ? `${a.icon} <span class="n">${esc(a.name)}</span>` : `<span class="n">Усі рахунки</span>`;
-  const left = multi() ? `<button class="acc-switch" data-a="pickAccount">${label}${ic('chevD')}</button>`
-    : title ? `<h1 class="top-title" style="margin:0">${title}</h1>` : `<span class="brand">${MARK}Гаманець</span>`;
-  return `<div class="top-row">${left}
-    ${title ? '' : `<button class="icon-btn" data-a="settings" aria-label="Налаштування">${ic('sliders')}</button>`}
-  </div>`;
+  return `<button class="acc-switch glass" data-a="pickAccount">${label}${ic('chevD')}</button>`;
 }
-
-function periodRow() {
+// Перемикач періоду (Огляд, Операції): ‹ рік › — стрілки; назва періоду — великим заголовком.
+function periodNav(withLabel = false) {
   const all = ui.period.kind === 'all' || ui.period.kind === 'custom';
   const last = range().end >= U.today(); // стрілка в майбутнє вимкнена, якщо поточний період останній
-  return `<div class="period-row">
-    <button class="icon-btn" data-a="periodShift" data-dir="-1" ${all ? 'disabled' : ''} aria-label="Попередній">${ic('chevL')}</button>
-    <button class="period-label" data-a="pickPeriod">${esc(range().label)}${ic('chevD')}</button>
-    <button class="icon-btn" data-a="periodShift" data-dir="1" ${all || last ? 'disabled' : ''} aria-label="Наступний">${ic('chevR')}</button>
-  </div>`;
+  const year = ui.period.kind === 'month' || ui.period.kind === 'week' || ui.period.kind === 'day' ? (range().start ?? '').slice(0, 4) : '';
+  const mid = withLabel ? `<button class="pill-mid btn-mid" data-a="pickPeriod">${esc(range().label)}${ic('chevD')}</button>`
+    : year ? `<span class="pill-mid num">${year}</span>` : '';
+  return glassNav('periodShift', mid, { prev: !all, next: !all && !last });
 }
+const periodTitle = () => esc(range().label.replace(/ \d{4}$/, ''));
 
 function currentSummary() {
   const r = range();
@@ -318,7 +332,7 @@ function viewHome() {
       : `<button class="ring-cat on" style="${pos}" data-a="addTx" data-type="expense" data-cat="${x.c.id}" aria-label="${esc(x.c.name)}, ${fmtMoney(x.amount, s.currency)}. Додати витрату"><span class="ring-ico">${catIco(x.c)}</span>${amt}</button>`;
   });
 
-  return `<header class="top">${headerTop()}${periodRow()}</header>
+  return `${glassHeader({ left: periodNav(), right: accSwitch() + glassBtn('settings', 'sliders', 'Налаштування'), title: periodTitle(), titleAct: 'pickPeriod' })}
   <section class="ring" id="ring" style="height:${H}px">
     <svg class="ring-lines" viewBox="0 0 ${W} ${H}" aria-hidden="true">${lines}</svg>
     <div class="ring-center" style="top:${H / 2 - DONUT / 2}px" data-a="goOps" role="button" aria-label="Операції за період">
@@ -421,12 +435,7 @@ function viewStats() {
   const max = Math.max(1, ...data.flatMap((d) => [d.income, d.expense]));
   const rows = [...s.byCat.entries()].filter(([, v]) => v.type === 'expense').sort((a, b) => b[1].amount - a[1].amount);
 
-  return `<header class="top"><div class="top-row"><span class="top-title">Статистика</span></div>
-    <div class="period-row">
-      <button class="icon-btn" data-a="statsShift" data-dir="-1" aria-label="Попередній рік">${ic('chevL')}</button>
-      <span class="period-label" style="text-align:center">${year} рік</span>
-      <button class="icon-btn" data-a="statsShift" data-dir="1" aria-label="Наступний рік">${ic('chevR')}</button>
-    </div></header>
+  return `${glassHeader({ left: glassNav('statsShift', `<span class="pill-mid num">${year}</span>`), title: 'Статистика' })}
   <div class="card stats3">
     <div><small>Доходи</small><b class="inc num">${fmtMoney(s.income, cur, { short: true })}</b></div>
     <div><small>Витрати</small><b class="exp num">${fmtMoney(s.expense, cur, { short: true })}</b></div>
@@ -458,7 +467,7 @@ function viewStats() {
 function viewOps() {
   const s = currentSummary();
   const c = ui.opsCat ? cat(ui.opsCat) ?? NO_CAT : null;
-  return `<header class="top">${headerTop('Операції')}${periodRow()}</header>
+  return `${glassHeader({ left: periodNav(true), right: accSwitch(), title: 'Операції' })}
   <div class="card stats3">
     <div><small>Доходи</small><b class="inc num">${fmtMoney(s.income, s.currency, { sign: true })}</b></div>
     <div><small>Витрати</small><b class="exp num">${fmtMoney(-s.expense, s.currency)}</b></div>
@@ -537,13 +546,7 @@ function viewBudgets() {
     </button>`;
   }).join('')}</div>` : `<div class="empty"><div class="e-ico">${ic('target')}</div>Бюджетів ще немає.<br>Задайте місячний ліміт на категорію або загальний — і стежте, скільки ще можна витратити.</div>`;
 
-  return `<header class="top"><div class="top-row"><span class="top-title">Бюджети</span>
-    <button class="icon-btn" data-a="editBudget" aria-label="Додати бюджет">${ic('plus')}</button></div>
-    <div class="period-row">
-      <button class="icon-btn" data-a="budgetShift" data-dir="-1">${ic('chevL')}</button>
-      <span class="period-label" style="text-align:center">${esc(r.label)}</span>
-      <button class="icon-btn" data-a="budgetShift" data-dir="1">${ic('chevR')}</button>
-    </div></header>
+  return `${glassHeader({ left: glassNav('budgetShift', `<span class="pill-mid">${esc(r.label)}</span>`), right: glassBtn('editBudget', 'plus', 'Додати бюджет'), title: 'Бюджети' })}
     ${body}
     <div class="btns"><button class="btn ghost" data-a="editBudget">${ic('plus')} Додати бюджет</button></div>
     <p class="hint" style="padding:0 20px">Ліміти — на календарний місяць, у базовій валюті (${cur}), враховуються витрати з усіх рахунків.</p>`;
@@ -554,8 +557,7 @@ function viewAccounts() {
   const bal = accountBalances(state.accounts, state.txs);
   let total = 0;
   for (const a of accounts()) if (!a.excludeFromTotal) total += convert(bal.get(a.id), a.currency, base(), base(), rates());
-  return `<header class="top"><div class="top-row"><span class="top-title">Рахунки</span>
-    <button class="icon-btn" data-a="editAccount" aria-label="Додати рахунок">${ic('plus')}</button></div></header>
+  return `${glassHeader({ right: glassBtn('editAccount', 'plus', 'Додати рахунок'), title: 'Рахунки' })}
   <div class="card card-pad"><div class="muted" style="font-size:14px">Усього</div><div class="num" style="font-size:30px;font-weight:700">${fmtMoney(total, base())}</div></div>
   <div class="card">${accounts().map((a) => {
     const b = bal.get(a.id);
@@ -1475,7 +1477,7 @@ document.addEventListener('change', onInput);
 
 // Помітний відгук на натискання (зауваження Дениса Д2): клас .pressed тримається ще 150 мс після відпускання,
 // бо :active на швидкому тапі iPhone майже не видно, а вібрації в PWA на iOS немає.
-const PRESSABLE = '.keypad button, .ring-cat, .ring-center, .cat-tile, .big, .ok-btn, .btn, .chip, .tab, .row, .budget, .icon-btn, .period-label, .balance-bar, .seg button, .ed-types button, .icon-grid button, .color-grid button';
+const PRESSABLE = '.keypad button, .ring-cat, .ring-center, .cat-tile, .big, .ok-btn, .btn, .chip, .tab, .row, .budget, .icon-btn, .period-label, .big-title-btn, .btn-mid, .balance-bar, .seg button, .ed-types button, .icon-grid button, .color-grid button';
 document.addEventListener('pointerdown', (e) => {
   const el = e.target.closest(PRESSABLE);
   if (!el || el.disabled) return;
