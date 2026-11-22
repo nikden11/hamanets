@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout, ringOrder, monthPace, dailyCumulative } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.4.4';
+export const APP_VERSION = '1.4.5';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -854,7 +854,7 @@ function edAmountHtml(hasOp, v, a) {
   // «245 ▍₴»: число, курсор brand, знак валюти другорядним
   const m = val.match(/^(.*?)\s*([^\d\s.,−-]+)$/);
   return `<div class="expr num">${hasOp ? esc(ed.expr) + ' =' : ''}</div>
-    <div class="val num ${ed.expr ? '' : 'empty'}">${m ? `${esc(m[1])}<i class="caret"></i><span class="cur">${esc(m[2])}</span>` : esc(val)}</div>`;
+    <div class="val num ${ed.expr ? '' : 'zero'}">${m ? `${esc(m[1])}<i class="caret"></i><span class="cur">${esc(m[2])}</span>` : esc(val)}</div>`;
 }
 
 // У редакторі копійки показуємо лише якщо вони справді є (напр. при редагуванні імпортованої операції).
