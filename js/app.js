@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout, ringOrder, monthPace } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.4.2';
+export const APP_VERSION = '1.4.3';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -22,6 +22,7 @@ const ICONS = {
   check: '<polyline points="20 6 9 17 4 12"/>',
   trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
   search: '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+  filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
   swap: '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
   sliders: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
   pie: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5V12h8.5"/>',
@@ -132,6 +133,7 @@ const ui = {
   accountId: null,
   period: { kind: 'month', anchor: U.today(), custom: null },
   opsCat: null,
+  opsType: null,
   opsSearch: '',
   budgetAnchor: U.today(),
   statsYear: new Date().getFullYear(),
@@ -164,6 +166,8 @@ function render() {
   moveRing(before);
   // Огляд — статичний екран без прокручування; якщо не влазить (малий iPhone), кільце трохи зменшується.
   document.documentElement.classList.toggle('static', ui.tab === 'home');
+  document.documentElement.classList.toggle('ops-tab', ui.tab === 'ops');
+  if (ui.tab !== 'ops') setTabCollapsed(false);
   if (ui.tab === 'home') { scrollTo(0, 0); fitHome(); }
 }
 
@@ -222,12 +226,31 @@ let refitT = 0;
 function refit() { clearTimeout(refitT); refitT = setTimeout(() => { if (ui.tab === 'home' && !sheets.length) fitHome(); }, 60); }
 addEventListener('resize', refit);
 // iOS 27: коли контент заходить під кнопки шапки — під ними з'являється скляна смуга
-addEventListener('scroll', () => { $('.top')?.classList.toggle('scrolled', scrollY > 4); }, { passive: true });
+let lastY = 0, tabCollapsed = false;
+function setTabCollapsed(v) {
+  if (tabCollapsed === v) return;
+  tabCollapsed = v;
+  document.documentElement.classList.toggle('tab-collapsed', v);
+}
+addEventListener('scroll', () => {
+  $('.top')?.classList.toggle('scrolled', scrollY > 4);
+  // Операції: прокрутка вниз — таббар згортається в коло (пошук поруч), вгору — розгортається
+  if (ui.tab === 'ops' && !sheets.length) {
+    const dy = scrollY - lastY;
+    if (scrollY < 40 || dy < -6) setTabCollapsed(false);
+    else if (dy > 6) setTabCollapsed(true);
+  } else setTabCollapsed(false);
+  lastY = scrollY;
+}, { passive: true });
+// Екранна клавіатура iOS не зсуває fixed-елементи — піднімаємо пошук над нею вручну (--kb)
+visualViewport?.addEventListener('resize', () => {
+  const kb = Math.max(0, innerHeight - visualViewport.height - visualViewport.offsetTop);
+  document.documentElement.style.setProperty('--kb', `${Math.round(kb)}px`);
+  document.documentElement.classList.toggle('kb-open', kb > 80);
+});
 addEventListener('orientationchange', refit);
 addEventListener('pageshow', refit);
 visualViewport?.addEventListener('resize', refit);
-// iOS 27: коли контент заходить під кнопки шапки — під ними з'являється скляна смуга
-addEventListener('scroll', () => { $('.top')?.classList.toggle('scrolled', scrollY > 4); }, { passive: true });
 document.fonts?.addEventListener?.('loadingdone', refit);
 document.fonts?.ready.then(refit);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refit(); });
@@ -477,25 +500,42 @@ function viewStats() {
 }
 
 // ---------- Операції ----------
+// Операції («Скло»): угорі — фільтр за категорією і «Листопад ⌄»; чипи Усі / Витрати / Доходи; групи-картки за днями.
+// Пошук — унизу над таббаром (Денис: «краще знизу»); при прокрутці вниз таббар згортається в коло, пошук стає поруч.
 function viewOps() {
   const s = currentSummary();
   const c = ui.opsCat ? cat(ui.opsCat) ?? NO_CAT : null;
-  return `${glassHeader({ left: periodNav(true), right: accSwitch(), title: 'Операції' })}
-  <div class="card stats3">
-    <div><small>Доходи</small><b class="inc num">${fmtMoney(s.income, s.currency, { sign: true })}</b></div>
-    <div><small>Витрати</small><b class="exp num">${fmtMoney(-s.expense, s.currency)}</b></div>
-    <div><small>Залишок</small><b class="num">${fmtMoney(s.net, s.currency, { sign: true })}</b></div>
+  const t = ui.opsType;
+  const chip = (type, label) => `<button class="chip ${t === type ? 'on' : ''}" data-a="opsType" data-type="${type ?? ''}" aria-pressed="${t === type}">${label}</button>`;
+  return `${glassHeader({
+    left: `<button class="icon-btn glass ${c ? 'on' : ''}" data-a="opsCatPick" aria-label="Фільтр за категорією">${ic('filter')}</button>`,
+    right: accSwitch() + `<button class="glass pill pill-btn" data-a="pickPeriod">${esc(range().label)}${ic('chevD')}</button>`,
+    title: 'Операції' })}
+  <div class="chips ops-chips">
+    ${chip(null, 'Усі')}${chip('expense', `Витрати <span class="num">${fmtMoney(-s.expense, s.currency)}</span>`)}${chip('income', `Доходи <span class="num">${fmtMoney(s.income, s.currency, { sign: true })}</span>`)}
+    ${c ? `<button class="chip" data-a="clearOpsCat" style="--c:${catColor(c)};padding-left:14px"><span class="dot">${catIco(c)}</span>${esc(c.name)} ${ic('x')}</button>` : ''}
   </div>
-  <label class="search">${ic('search')}<input type="search" placeholder="Пошук за нотаткою чи категорією" value="${esc(ui.opsSearch)}" data-in="opsSearch" enterkeyhint="search"></label>
-  ${c ? `<div class="chips" style="padding-top:8px"><button class="chip" data-a="clearOpsCat" style="--c:${catColor(c)};padding-left:14px"><span class="dot">${catIco(c)}</span>${esc(c.name)} ${ic('x')}</button></div>` : ''}
-  <div id="ops-list">${opsList(s)}</div>`;
+  <div id="ops-list">${opsList(s)}</div>
+  <label class="ops-search glass">${ic('search')}<input type="search" placeholder="Пошук: назва, сума" aria-label="Пошук операцій" value="${esc(ui.opsSearch)}" data-in="opsSearch" enterkeyhint="search"></label>`;
+}
+
+// фільтр за категорією — шторка з сіткою категорій (витрати, потім доходи)
+function opsCatSheet() {
+  const tile = (c) => `<button class="cat-tile ${c.id === ui.opsCat ? 'sel' : ''}" style="--c:${catColor(c)}" data-a="opsCatSet" data-id="${c.id}"><span class="ico">${catIco(c)}</span><span>${esc(c.name)}</span></button>`;
+  openSheet({ full: true, render: () => `${sheetHead('Фільтр за категорією', ui.opsCat ? `<button class="icon-btn" data-a="opsCatSet" data-id="" aria-label="Скинути">${ic('x')}</button>` : '')}
+    <div class="sheet-b"><div class="section-t">Витрати</div><div class="cat-grid">${catsOf('expense').map(tile).join('')}</div>
+    <div class="section-t">Доходи</div><div class="cat-grid">${catsOf('income').map(tile).join('')}</div></div>` });
 }
 
 function opsList(s = currentSummary()) {
   const q = ui.opsSearch.trim().toLowerCase();
   let list = s.list;
   if (ui.opsCat) list = list.filter((t) => t.categoryId === ui.opsCat);
-  if (q) list = list.filter((t) => `${t.note ?? ''} ${(cat(t.categoryId) ?? NO_CAT).name} ${acc(t.accountId)?.name ?? ''}`.toLowerCase().includes(q));
+  if (ui.opsType) list = list.filter((t) => t.type === ui.opsType);
+  // пошук: назва категорії, нотатка, рахунок або сума («245», «1 200»)
+  const qn = q.replace(/[\s ]/g, '').replace(',', '.');
+  if (q) list = list.filter((t) => `${t.note ?? ''} ${(cat(t.categoryId) ?? NO_CAT).name} ${acc(t.accountId)?.name ?? ''}`.toLowerCase().includes(q)
+    || (/^\d+(\.\d+)?$/.test(qn) && String(U.fromMinor(t.amount)).startsWith(qn)));
   if (!list.length) {
     return `<div class="empty"><div class="e-ico">${ic('list')}</div>${state.txs.length ? 'Немає операцій за цей період' : 'Ще немає жодної операції.<br>Додайте першу кнопкою «Витрата» на головному екрані або імпортуйте історію з Monefy в налаштуваннях.'}</div>`;
   }
@@ -509,8 +549,9 @@ function opsList(s = currentSummary()) {
     let dayNet = 0;
     for (const t of items) if (t.type !== 'transfer') dayNet += (t.type === 'expense' ? -1 : 1) * convert(t.amount, acc(t.accountId)?.currency ?? base(), s.currency, base(), rates());
     const rel = U.relDay(day);
-    html += `<div class="day-h"><span>${rel ? rel + ', ' + U.fmtDate(day) : U.fmtDate(day, { weekday: true })}</span><span class="num">${dayNet ? fmtMoney(dayNet, s.currency, { sign: true }) : ''}</span></div>
-      <div class="card" style="margin-top:0">${items.map((t) => txRow(t, showAcc)).join('')}</div>`;
+    const title = day === U.today() ? 'Сьогодні' : rel ? `${rel}, ${U.fmtDate(day)}` : U.fmtDate(day, { weekday: true });
+    html += `<section class="day"><div class="day-h"><span>${title}</span><span class="num">${dayNet ? fmtMoney(dayNet, s.currency, { sign: true }) : ''}</span></div>
+      <div class="card day-card">${items.map((t) => txRow(t, showAcc)).join('')}</div></section>`;
     n += items.length;
   }
   return html;
@@ -1324,7 +1365,7 @@ function persistStorage() {
 
 // ---------- Обробники подій ----------
 const actions = {
-  tab: (d) => { ui.tab = d.id; if (d.id !== 'ops') ui.opsCat = null; render(); scrollTo(0, 0); },
+  tab: (d) => { if (tabCollapsed) return setTabCollapsed(false); ui.tab = d.id; if (d.id !== 'ops') { ui.opsCat = null; ui.opsType = null; } render(); scrollTo(0, 0); },
   settings: () => settingsSheet(),
   closeSheet: () => closeSheet(),
   toastAction: () => { const el = $('#toast'); el.classList.remove('show'); const f = el._action; el._action = null; return f?.(); },
@@ -1348,6 +1389,10 @@ const actions = {
   openSummary: () => openSummary(),
   goOps: (d) => { while (sheets.length) closeSheet(); ui.tab = 'ops'; ui.opsCat = d.cat || null; ui.opsSearch = ''; render(); scrollTo(0, 0); },
   clearOpsCat: () => { ui.opsCat = null; render(); },
+  opsCatPick: () => opsCatSheet(),
+  opsCatSet: (d) => { ui.opsCat = d.id || null; closeSheet(); render(); },
+  opsType: (d) => { ui.opsType = d.type || null; render(); },
+  tabExpand: () => setTabCollapsed(false),
 
   addTx: (d) => openEditor({ type: d.type, categoryId: d.cat || null }),
   editTx: (d) => {
@@ -1513,7 +1558,7 @@ document.addEventListener('change', onInput);
 
 // Помітний відгук на натискання (зауваження Дениса Д2): клас .pressed тримається ще 150 мс після відпускання,
 // бо :active на швидкому тапі iPhone майже не видно, а вібрації в PWA на iOS немає.
-const PRESSABLE = '.keypad button, .ring-cat, .ring-center, .cat-tile, .big, .ok-btn, .btn, .chip, .tab, .row, .budget, .icon-btn, .period-label, .big-title-btn, .btn-mid, .balance-bar, .seg button, .ed-types button, .ed-quick button, .ed-cat, .icon-grid button, .color-grid button';
+const PRESSABLE = '.keypad button, .ring-cat, .ring-center, .cat-tile, .big, .ok-btn, .btn, .chip, .tab, .row, .budget, .icon-btn, .period-label, .big-title-btn, .btn-mid, .balance-bar, .pill-btn, .seg button, .ed-types button, .ed-quick button, .ed-cat, .icon-grid button, .color-grid button';
 document.addEventListener('pointerdown', (e) => {
   const el = e.target.closest(PRESSABLE);
   if (!el || el.disabled) return;
