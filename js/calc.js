@@ -218,3 +218,18 @@ export function monthPace({ txs, accounts, accountId, month, today, base, rates 
   const now = sum(`${month}-01`, `${month}-${pad(day)}`), prev = sum(prevStart, `${py}-${pad(pm)}-${pad(pday)}`);
   return { now, prev, diff: now - prev, day: cur ? pday : null, prevMonth: pm - 1 };
 }
+
+// Накопичені витрати по днях місяця (для графіка «Темп витрат»): масив довжиною в кількість днів,
+// [i] — сума витрат з 1-го по (i+1)-ше число, у базовій валюті. upTo — останній день, що рахується (решта — null).
+export function dailyCumulative({ txs, accounts, month, base, rates, upTo = null }) {
+  const [y, m] = month.split('-').map(Number);
+  const n = new Date(y, m, 0).getDate();
+  const accCur = new Map(accounts.map((a) => [a.id, a.currency]));
+  const day = new Array(n).fill(0);
+  for (const t of txs) {
+    if (t.type !== 'expense' || t.date.slice(0, 7) !== month) continue;
+    day[+t.date.slice(8, 10) - 1] += convert(t.amount, accCur.get(t.accountId) ?? base, base, base, rates);
+  }
+  let acc = 0;
+  return day.map((v, i) => (upTo && i + 1 > upTo ? null : (acc += v)));
+}

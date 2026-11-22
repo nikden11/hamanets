@@ -1,10 +1,10 @@
 // Гаманець — особистий облік витрат. Інтерфейс.
 import { state, load, put, remove, removeMany, putMany, commit, saveSettings, replaceAll, resetToDefaults, snapshot, sortAll } from './db.js';
 import * as U from './util.js';
-import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout, ringOrder, monthPace } from './calc.js';
+import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout, ringOrder, monthPace, dailyCumulative } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.4.3';
+export const APP_VERSION = '1.4.4';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -137,6 +137,8 @@ const ui = {
   opsSearch: '',
   budgetAnchor: U.today(),
   statsYear: new Date().getFullYear(),
+  statsMode: 'month',
+  statsMonth: U.today().slice(0, 7),
   catTab: 'expense',
 };
 try {
@@ -455,7 +457,96 @@ function trendCard() {
 }
 
 // ---------- Статистика ----------
+// Статистика («Скло»): угорі сегмент Місяць | Рік. Місяць — «Темп витрат» (накопичені витрати проти минулого
+// місяця на той самий день), бюджети, категорії. Рік — помісячні підсумки, як було.
+function statsSeg() {
+  const b = (m, l) => `<button role="tab" aria-selected="${ui.statsMode === m}" class="${ui.statsMode === m ? 'on' : ''}" data-a="statsMode" data-m="${m}">${l}</button>`;
+  return `<div class="glass seg-glass" role="tablist" aria-label="Період">${b('month', 'Місяць')}${b('year', 'Рік')}</div>`;
+}
+const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
 function viewStats() {
+  return ui.statsMode === 'month' ? viewStatsMonth() : viewStatsYear();
+}
+
+function viewStatsMonth() {
+  const month = ui.statsMonth, cur = base(), today = U.today();
+  const [y, m] = month.split('-').map(Number);
+  const isCur = today.slice(0, 7) === month;
+  const days = new Date(y, m, 0).getDate();
+  const day = isCur ? +today.slice(8, 10) : days;
+  const pm = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+  const o = { txs: state.txs, accounts: state.accounts, base: cur, rates: rates() };
+  const now = dailyCumulative({ ...o, month, upTo: isCur ? day : null });
+  const prev = dailyCumulative({ ...o, month: pm });
+  const pace = monthPace({ ...o, accountId: null, month, today });
+  const total = now[day - 1] ?? 0;
+  const prevAt = prev[Math.min(day, prev.length) - 1] ?? 0;
+  const hasPrev = prev[prev.length - 1] > 0;
+  const pct = pace && pace.prev ? Math.round((pace.diff / pace.prev) * 100) : null;
+  // графік
+  const W = 322, H = 150, x0 = 6, x1 = W - 6, yB = 130, n = Math.max(days, prev.length);
+  const top = Math.max(1, ...now.filter((v) => v != null), ...(hasPrev ? prev : [0])) * 1.08;
+  const X = (d) => x0 + ((d - 1) / Math.max(1, n - 1)) * (x1 - x0);
+  const Y = (v) => yB - (v / top) * 118;
+  const line = (arr) => arr.map((v, i) => (v == null ? '' : `${i ? 'L' : 'M'}${X(i + 1).toFixed(1)} ${Y(v).toFixed(1)}`)).join(' ');
+  const nowPath = line(now.slice(0, day));
+  const area = `${nowPath} L${X(day).toFixed(1)} ${yB} L${X(1).toFixed(1)} ${yB} Z`;
+  const MLOC = U.MONTHS[m - 1], PREV = U.MONTHS[(m + 10) % 12];
+  const chart = `<svg class="pace-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Накопичені витрати: ${MLOC} ${fmtMoney(total, cur)}${hasPrev ? `, ${PREV} на цей день ${fmtMoney(prevAt, cur)}` : ''}">
+    <line x1="${x0}" y1="${yB}" x2="${x1}" y2="${yB}" class="axis"/>
+    ${hasPrev ? `<path d="${line(prev)}" class="prev"/>` : ''}
+    <path d="${area}" class="area"/><path d="${nowPath}" class="now"/>
+    <line x1="${X(day).toFixed(1)}" y1="${Y(total).toFixed(1)}" x2="${X(day).toFixed(1)}" y2="${yB}" class="mark"/>
+    ${hasPrev ? `<circle cx="${X(day).toFixed(1)}" cy="${Y(prevAt).toFixed(1)}" r="3.5" class="pdot"/>` : ''}
+    <circle cx="${X(day).toFixed(1)}" cy="${Y(total).toFixed(1)}" r="5" class="dot"/>
+    <text x="${x0}" y="146" class="lbl">1</text>
+    ${day > 2 && day < n - 1 ? `<text x="${X(day).toFixed(1)}" y="146" class="lbl cur" text-anchor="middle">${day}</text>` : ''}
+    <text x="${x1}" y="146" class="lbl ${day >= n - 1 ? 'cur' : ''}" text-anchor="end">${n}</text>
+  </svg>`;
+  const chip = pct == null ? '' : `<span class="pace-chip ${pct <= 0 ? 'good' : 'bad'}"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="${pct <= 0 ? 'M12 5v14M6 13l6 6 6-6' : 'M12 19V5M6 11l6-6 6 6'}"/></svg>${Math.abs(pct)}%</span>`;
+  const paceCard = `<section class="card s-card">
+    <div class="pace-h"><div><div class="sub">Темп витрат · ${isCur ? `до ${day} ${U.MONTHS_GEN[m - 1]}` : MLOC.toLowerCase()}</div>
+      <div class="pace-sum num">${fmtMoney(total, cur)}</div></div>${chip}</div>
+    ${chart}
+    <div class="legend2"><span><i class="ln"></i>${MLOC}</span>${hasPrev ? `<span class="num"><i class="ln dash"></i>${PREV}: ${fmtMoney(prevAt, cur)} ${isCur ? 'на цей день' : ''}</span>` : ''}</div>
+  </section>`;
+  // бюджети місяця
+  const r = U.periodRange('month', `${month}-01`);
+  const items = budgetProgress({ budgets: state.budgets, txs: state.txs, accounts: state.accounts, start: r.start, end: r.end, base: cur, rates: rates() })
+    .sort((a, b) => (a.categoryId ? 1 : 0) - (b.categoryId ? 1 : 0) || b.ratio - a.ratio);
+  const left = isCur ? days - day + 1 : 0;
+  const budgetCard = items.length ? `<section class="card s-card">
+    <div class="s-h"><span>Бюджети</span><span class="muted">${isCur ? `залишилось ${left} ${plural(left, 'день', 'дні', 'днів')}` : ''}</span></div>
+    ${items.map((b) => {
+      const c = b.categoryId ? cat(b.categoryId) ?? NO_CAT : null;
+      const over = b.ratio > 1, near = !over && b.ratio >= 0.85;
+      const col = c ? catColor(c) : 'var(--accent)';
+      const note = over ? `перевищено на ${fmtMoney(-b.left, cur)}` : near ? `${Math.round(b.ratio * 100)}% · майже вичерпано` : `ще ${fmtMoney(b.left, cur)}`;
+      return `<button class="s-bud" data-a="editBudget" data-id="${b.id}" style="--c:${col}">
+        <span class="ico">${c ? catIco(c) : ic('target')}</span>
+        <span class="mid"><span class="t"><span class="n">${c ? esc(c.name) : 'Загальний бюджет'}</span><span class="num ${over ? 'over' : near ? 'near' : ''}">${note}</span></span>
+        <span class="bar"><i style="width:${(Math.min(b.ratio, 1) * 100).toFixed(1)}%;background:${over ? 'var(--exp)' : near ? 'var(--warn)' : col}"></i></span></span>
+      </button>`;
+    }).join('')}</section>` : '';
+  // категорії місяця
+  const sm = summarize({ ...o, accountId: null, start: r.start, end: r.end });
+  const rows = [...sm.byCat.entries()].filter(([, v]) => v.type === 'expense' && v.amount > 0).sort((a, b) => b[1].amount - a[1].amount);
+  const catCard = rows.length ? `<div class="card"><div class="card-h"><span>Категорії витрат</span></div>
+    ${rows.map(([id, v]) => {
+      const c = cat(id) ?? NO_CAT;
+      const p = sm.expense ? (v.amount / sm.expense) * 100 : 0;
+      return `<button class="row" data-a="statsCatM" data-cat="${id}" style="--c:${catColor(c)}">
+        <span class="ico">${catIco(c)}</span>
+        <span class="mid"><div class="t1">${esc(c.name)}</div><div class="bar"><i style="width:${p.toFixed(1)}%"></i></div></span>
+        <span class="amt num">${fmtMoney(v.amount, cur, { short: true })}<small>${p.toFixed(p < 10 ? 1 : 0)}%</small></span></button>`;
+    }).join('')}</div>` : '';
+  const last = today.slice(0, 7) <= month;
+  return `${glassHeader({ left: glassNav('statsShift', `<span class="pill-mid">${esc(U.MONTHS[m - 1])}${y !== +today.slice(0, 4) ? ' ' + y : ''}</span>`, { next: !last }), right: statsSeg(), title: 'Статистика' })}
+  ${total || hasPrev ? paceCard : `<div class="empty"><div class="e-ico">${ic('bars')}</div>За ${MLOC.toLowerCase()} ще немає витрат</div>`}
+  ${budgetCard}${catCard}`;
+}
+
+function viewStatsYear() {
   const year = ui.statsYear;
   const cur = base();
   const data = monthlyTotals({ txs: state.txs, accounts: state.accounts, base: cur, rates: rates(), anchor: `${year}-12-01`, n: 12 });
@@ -471,7 +562,7 @@ function viewStats() {
   const max = Math.max(1, ...data.flatMap((d) => [d.income, d.expense]));
   const rows = [...s.byCat.entries()].filter(([, v]) => v.type === 'expense').sort((a, b) => b[1].amount - a[1].amount);
 
-  return `${glassHeader({ left: glassNav('statsShift', `<span class="pill-mid num">${year}</span>`), title: 'Статистика' })}
+  return `${glassHeader({ left: glassNav('statsShift', `<span class="pill-mid num">${year}</span>`), right: statsSeg(), title: 'Статистика' })}
   <div class="card stats3">
     <div><small>Доходи</small><b class="inc num">${fmtMoney(s.income, cur, { short: true })}</b></div>
     <div><small>Витрати</small><b class="exp num">${fmtMoney(s.expense, cur, { short: true })}</b></div>
@@ -1444,7 +1535,13 @@ const actions = {
   catDelete: () => deleteCategory(),
 
   editBudget: (d) => openBudgetEditor(d.id),
-  statsShift: (d) => { ui.statsYear += +d.dir; render(); },
+  statsShift: (d) => {
+    if (ui.statsMode === 'year') ui.statsYear += +d.dir;
+    else { const [y, m] = ui.statsMonth.split('-').map(Number); const t = new Date(y, m - 1 + +d.dir, 1); ui.statsMonth = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`; }
+    render();
+  },
+  statsMode: (d) => { ui.statsMode = d.m; if (d.m === 'year') ui.statsYear = +ui.statsMonth.slice(0, 4); render(); scrollTo(0, 0); },
+  statsCatM: (d) => { ui.period = { kind: 'month', anchor: `${ui.statsMonth}-01`, custom: null }; saveUi(); ui.tab = 'ops'; ui.opsCat = d.cat; ui.opsSearch = ''; render(); scrollTo(0, 0); },
   statsMonth: (d) => { ui.period = { kind: 'month', anchor: `${d.m}-01`, custom: null }; saveUi(); ui.tab = 'home'; render(); scrollTo(0, 0); },
   statsCat: (d) => {
     ui.period = { kind: 'year', anchor: `${ui.statsYear}-01-01`, custom: null };
@@ -1558,7 +1655,7 @@ document.addEventListener('change', onInput);
 
 // Помітний відгук на натискання (зауваження Дениса Д2): клас .pressed тримається ще 150 мс після відпускання,
 // бо :active на швидкому тапі iPhone майже не видно, а вібрації в PWA на iOS немає.
-const PRESSABLE = '.keypad button, .ring-cat, .ring-center, .cat-tile, .big, .ok-btn, .btn, .chip, .tab, .row, .budget, .icon-btn, .period-label, .big-title-btn, .btn-mid, .balance-bar, .pill-btn, .seg button, .ed-types button, .ed-quick button, .ed-cat, .icon-grid button, .color-grid button';
+const PRESSABLE = '.keypad button, .ring-cat, .ring-center, .cat-tile, .big, .ok-btn, .btn, .chip, .tab, .row, .budget, .icon-btn, .period-label, .big-title-btn, .btn-mid, .balance-bar, .pill-btn, .s-bud, .seg-glass button, .seg button, .ed-types button, .ed-quick button, .ed-cat, .icon-grid button, .color-grid button';
 document.addEventListener('pointerdown', (e) => {
   const el = e.target.closest(PRESSABLE);
   if (!el || el.disabled) return;

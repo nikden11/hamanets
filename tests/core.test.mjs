@@ -205,3 +205,20 @@ test('monthPace: витрати до того ж дня минулого міс�
   // майбутній місяць
   assert.equal(monthPace({ ...o, month: '2026-12', today: '2026-11-22' }), null);
 });
+
+test('dailyCumulative: накопичені витрати по днях', async () => {
+  const { dailyCumulative } = await import('../js/calc.js');
+  const accounts = [{ id: 'a', currency: 'UAH' }];
+  const txs = [
+    { type: 'expense', amount: 100, accountId: 'a', date: '2026-02-01' },
+    { type: 'expense', amount: 50, accountId: 'a', date: '2026-02-03' },
+    { type: 'income', amount: 999, accountId: 'a', date: '2026-02-02' },
+    { type: 'expense', amount: 7, accountId: 'a', date: '2026-03-01' },
+  ];
+  const d = dailyCumulative({ txs, accounts, month: '2026-02', base: 'UAH', rates: {} });
+  assert.equal(d.length, 28);
+  assert.deepEqual(d.slice(0, 4), [100, 100, 150, 150]);
+  assert.equal(d[27], 150);
+  const u = dailyCumulative({ txs, accounts, month: '2026-02', base: 'UAH', rates: {}, upTo: 2 });
+  assert.deepEqual(u.slice(0, 3), [100, 100, null]);
+});
