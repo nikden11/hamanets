@@ -4,7 +4,7 @@ import * as U from './util.js';
 import { summarize, accountBalances, budgetProgress, monthlyTotals, convert, categoryOrder, ringLayout, ringOrder, monthPace } from './calc.js';
 import { parseMonefy, buildImport } from './monefy.js';
 
-export const APP_VERSION = '1.4.1';
+export const APP_VERSION = '1.4.2';
 
 const { esc } = U;
 const fmtMoney = (m, cur, o = {}) => U.fmtMoney(m, cur, { whole: true, ...o });
@@ -658,11 +658,13 @@ function openEditor({ type = 'expense', categoryId = null, tx = null } = {}) {
     id: null, type, expr: '', categoryId, accountId: acc(defAcc) && !acc(defAcc).archived ? defAcc : accounts()[0].id,
     date: ui.period.kind === 'day' && ui.period.anchor !== U.today() ? ui.period.anchor : U.today(), note: '', step: 'amount',
   };
-  openSheet({ render: renderEditor, full: true, onClose: () => { ed = null; } });
+  openSheet({ render: renderEditor, full: true, cls: 'ed-sheet', onClose: () => { ed = null; } });
 }
 
 function edValue() { return U.calcExpr(ed.expr); }
 
+// Нова витрата — шторка «Скло»: закрити · Витрата|Дохід · ✓; чип категорії, сума 64px, «Сьогодні»/«Коментар»,
+// «Часто цього місяця» (4 найчастіші + «Усі»), клавіші-капсули, «Зберегти · N ₴».
 function renderEditor() {
   if (ed.step === 'category') return renderCatStep();
   const a = acc(ed.accountId);
@@ -670,40 +672,57 @@ function renderEditor() {
   const hasOp = /[+\-−×÷*/]/.test(ed.expr.replace(/^-/, ''));
   const v = edValue();
   const rel = U.relDay(ed.date);
-  const k = (label, key, cls = '') => `<button class="${cls}" data-a="key" data-k="${key}">${label}</button>`;
+  const k = (label, key, cls = '', aria = '') => `<button class="${cls}" data-a="key" data-k="${key}" ${aria ? `aria-label="${aria}"` : ''}>${label}</button>`;
+  // найчастіші категорії цього місяця (порядок фіксуємо при відкритті, щоб не стрибав під пальцем)
+  if (!ed.quick || ed.quickType !== ed.type) {
+    ed.quick = categoryOrder(catsOf(ed.type), state.txs, { type: ed.type, today: U.today() }).slice(0, 4).map((x) => x.id);
+    ed.quickType = ed.type;
+  }
+  const quick = ed.quick.map((id) => cat(id)).filter(Boolean);
+  const ok = Number.isFinite(v) && v > 0;
   return `<div class="ed ${ed.type}">
-    <div class="ed-top">
-      <div class="grabber"></div>
-      <div class="sheet-h">
-        <button class="icon-btn" data-a="closeSheet" aria-label="Закрити">${ic('x')}</button>
-        <div class="ed-types">
-          <button class="${ed.type === 'expense' ? 'on' : ''}" data-a="edType" data-type="expense">Витрата</button>
-          <button class="${ed.type === 'income' ? 'on' : ''}" data-a="edType" data-type="income">Дохід</button>
-        </div>
-        ${ed.id ? `<button class="icon-btn" data-a="edDelete" aria-label="Видалити">${ic('trash')}</button>` : '<div style="width:44px"></div>'}
+    <div class="grabber"></div>
+    <div class="ed-bar">
+      <button class="icon-btn glass" data-a="closeSheet" aria-label="Закрити">${ic('x')}</button>
+      <div class="ed-types" role="tablist" aria-label="Тип операції">
+        <button role="tab" aria-selected="${ed.type === 'expense'}" class="${ed.type === 'expense' ? 'on' : ''}" data-a="edType" data-type="expense">Витрата</button>
+        <button role="tab" aria-selected="${ed.type === 'income'}" class="${ed.type === 'income' ? 'on' : ''}" data-a="edType" data-type="income">Дохід</button>
       </div>
+      <button class="icon-btn ed-ok" data-a="edOk" aria-label="Зберегти">${ic('check')}</button>
+    </div>
+    <div class="ed-main">
+      ${c ? `<button class="ed-cat" data-a="edPickCat" style="--c:${catColor(c)}"><span class="dot">${catIco(c)}</span><span class="n">${esc(c.name)}</span>${ic('chevD')}</button>`
+    : `<button class="ed-cat none" data-a="edPickCat"><span class="n">Обрати категорію</span>${ic('chevD')}</button>`}
       <div class="ed-amount" id="ed-amount">${edAmountHtml(hasOp, v, a)}</div>
+      <div class="ed-chips">
+        <label class="chip">${ic('cal')} ${rel ?? U.fmtDate(ed.date)}<input type="date" value="${ed.date}" data-in="edDate" max="2100-12-31"></label>
+        <label class="chip note-chip">${ic('note')}<input type="text" placeholder="Коментар" aria-label="Коментар" value="${esc(ed.note)}" data-in="edNote" enterkeyhint="done" maxlength="200" size="${Math.max(8, Math.min(18, ed.note.length + 1))}"></label>
+        ${multi() ? `<button class="chip" data-a="edPickAcc">${a.icon} ${esc(a.name)}</button>` : ''}
+        ${ed.id ? `<button class="chip" data-a="edDelete">${ic('trash')} Видалити</button>` : ''}
+      </div>
     </div>
-    <div class="ed-chips">
-      ${c ? `<button class="chip ed-cat-chip" data-a="edPickCat" style="--c:${catColor(c)};padding-left:14px"><span class="dot">${catIco(c)}</span>${esc(c.name)}${ic('chevD')}</button>`
-    : `<button class="chip ed-cat-chip" data-a="edPickCat">Категорія${ic('chevD')}</button>`}
-      ${multi() ? `<button class="chip" data-a="edPickAcc">${a.icon} ${esc(a.name)}</button>` : ''}
-      <label class="chip">${ic('cal')} ${rel ?? U.fmtDate(ed.date)}<input type="date" value="${ed.date}" data-in="edDate" max="2100-12-31"></label>
-    </div>
-    <label class="ed-note">${ic('note')}<input type="text" placeholder="Нотатка" aria-label="Нотатка" value="${esc(ed.note)}" data-in="edNote" enterkeyhint="done" maxlength="200"></label>
+    ${quick.length ? `<div class="ed-quick">
+      <div class="lbl">Часто цього місяця</div>
+      <div class="row5">${quick.map((q) => `<button class="${q.id === ed.categoryId ? 'on' : ''}" style="--c:${catColor(q)}" data-a="edQuick" data-id="${q.id}" aria-pressed="${q.id === ed.categoryId}"><span class="ico">${catIco(q)}</span><span class="n">${esc(q.name)}</span></button>`).join('')}
+        <button data-a="edPickCat" style="--c:var(--muted)"><span class="ico">${ic('grid')}</span><span class="n">Усі</span></button></div>
+    </div>` : ''}
     <div class="keypad">
-      ${k('1', '1')}${k('2', '2')}${k('3', '3')}${k(ic('back'), 'back', 'op')}
-      ${k('4', '4')}${k('5', '5')}${k('6', '6')}${k('−', '−', 'op')}
-      ${k('7', '7')}${k('8', '8')}${k('9', '9')}${k('+', '+', 'op')}
-      ${k('000', '000')}${k('0', '0')}${k('×', '×', 'op')}${k('÷', '÷', 'op')}
+      ${k('1', '1')}${k('2', '2')}${k('3', '3')}${k(ic('back'), 'back', 'op', 'Стерти')}
+      ${k('4', '4')}${k('5', '5')}${k('6', '6')}${k('+', '+', 'op', 'Додати')}
+      ${k('7', '7')}${k('8', '8')}${k('9', '9')}${k('−', '−', 'op', 'Відняти')}
+      ${k('000', '000', 'k000', 'Три нулі')}${k('0', '0')}${k('×', '×', 'op', 'Помножити')}${k('÷', '÷', 'op', 'Поділити')}
     </div>
-    <button class="ok-btn" data-a="edOk">${ed.id ? `${ic('check')} Зберегти` : c ? `${ic('check')} Записати ${ed.type === 'expense' ? 'витрату' : 'дохід'}` : `Обрати категорію ${ic('arrowR')}`}</button>
+    <button class="ok-btn" data-a="edOk" id="ed-save">${edSaveLabel(c, ok, v, a)}</button>
   </div>`;
 }
+const edSaveLabel = (c, ok, v, a) => !c ? `Обрати категорію ${ic('arrowR')}` : `Зберегти${ok ? ` · <span class="num">${edMoney(U.toMinor(v), a.currency)}</span>` : ''}`;
 
 function edAmountHtml(hasOp, v, a) {
+  const val = Number.isFinite(v) ? edMoney(U.toMinor(v), a.currency) : fmtMoney(0, a.currency);
+  // «245 ▍₴»: число, курсор brand, знак валюти другорядним
+  const m = val.match(/^(.*?)\s*([^\d\s.,−-]+)$/);
   return `<div class="expr num">${hasOp ? esc(ed.expr) + ' =' : ''}</div>
-    <div class="val num">${Number.isFinite(v) ? edMoney(U.toMinor(v), a.currency) : fmtMoney(0, a.currency)}</div>`;
+    <div class="val num ${ed.expr ? '' : 'empty'}">${m ? `${esc(m[1])}<i class="caret"></i><span class="cur">${esc(m[2])}</span>` : esc(val)}</div>`;
 }
 
 // У редакторі копійки показуємо лише якщо вони справді є (напр. при редагуванні імпортованої операції).
@@ -713,7 +732,10 @@ function updateEdAmount() {
   const el = $('#ed-amount');
   if (!el) return refreshSheet();
   const hasOp = /[+\-−×÷*/]/.test(ed.expr.replace(/^-/, ''));
-  el.innerHTML = edAmountHtml(hasOp, edValue(), acc(ed.accountId));
+  const v = edValue(), a = acc(ed.accountId);
+  el.innerHTML = edAmountHtml(hasOp, v, a);
+  const sv = $('#ed-save');
+  if (sv) sv.innerHTML = edSaveLabel(ed.categoryId ? cat(ed.categoryId) : null, Number.isFinite(v) && v > 0, v, a);
 }
 
 function edKey(k) {
@@ -1335,6 +1357,7 @@ const actions = {
   key: (d) => edKey(d.k),
   edType: (d) => { if (ed.type === d.type) return; ed.type = d.type; if (cat(ed.categoryId)?.type !== d.type) ed.categoryId = null; refreshSheet(); },
   edPickCat: () => { ed.step = 'category'; ed.pending = false; refreshSheet(); },
+  edQuick: (d) => { ed.categoryId = d.id; refreshSheet(); },
   edCat: (d) => {
     ed.categoryId = d.id; ed.step = 'amount';
     if (ed.pending && edValue() > 0) return saveEditor();
@@ -1490,7 +1513,7 @@ document.addEventListener('change', onInput);
 
 // Помітний відгук на натискання (зауваження Дениса Д2): клас .pressed тримається ще 150 мс після відпускання,
 // бо :active на швидкому тапі iPhone майже не видно, а вібрації в PWA на iOS немає.
-const PRESSABLE = '.keypad button, .ring-cat, .ring-center, .cat-tile, .big, .ok-btn, .btn, .chip, .tab, .row, .budget, .icon-btn, .period-label, .big-title-btn, .btn-mid, .balance-bar, .seg button, .ed-types button, .icon-grid button, .color-grid button';
+const PRESSABLE = '.keypad button, .ring-cat, .ring-center, .cat-tile, .big, .ok-btn, .btn, .chip, .tab, .row, .budget, .icon-btn, .period-label, .big-title-btn, .btn-mid, .balance-bar, .seg button, .ed-types button, .ed-quick button, .ed-cat, .icon-grid button, .color-grid button';
 document.addEventListener('pointerdown', (e) => {
   const el = e.target.closest(PRESSABLE);
   if (!el || el.disabled) return;

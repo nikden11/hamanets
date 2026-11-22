@@ -347,35 +347,69 @@ button.row:active, .row.tap:active { background: var(--card-2); }
 .seg button.on { background: var(--card); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .10); }
 
 /* ---------- Редактор операції ---------- */
-.ed { display: flex; flex-direction: column; height: 100%; }
-.ed-top { padding: 4px 16px 24px; }
-.ed.expense .ed-top { background: var(--exp); color: var(--on-exp); }
-.ed.income .ed-top { background: var(--inc); color: var(--on-inc); }
-.ed-top .grabber { background: currentColor; opacity: .35; }
-.ed-top .sheet-h { padding: 6px 0 0; }
-.ed-top .icon-btn { color: inherit; }
-.ed-top .icon-btn:active { background: var(--seg-on-color); }
-.ed-types { display: flex; gap: 0; background: var(--seg-on-color); border-radius: 10px; padding: 3px; flex: 1; max-width: 220px; margin: 0 auto; }
-.ed-types button { flex: 1; height: 32px; border-radius: 8px; font-weight: 500; font-size: 15px; color: inherit; }
-.ed-types button.on { background: var(--card); color: var(--text); font-weight: 600; }
-.ed-amount { text-align: center; padding: 16px 4px 0; }
-.ed-amount .expr { font-size: 15px; line-height: 20px; opacity: .8; min-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ed-amount .val { font-size: 40px; line-height: 44px; font-weight: 600; letter-spacing: -.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.ed-chips { display: flex; gap: 8px; padding: 16px 16px 4px; overflow-x: auto; scrollbar-width: none; }
-.ed-chips .chip { flex: none; position: relative; }
+/* ---------- Нова витрата (шторка «Скло») ---------- */
+.sheet.ed-sheet { border-radius: 38px 38px 0 0; }
+.ed { display: flex; flex-direction: column; height: 100%; padding: 0 16px 12px; gap: 12px; }
+.ed .grabber { margin-bottom: -4px; }
+.ed-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ed-types { display: flex; padding: 3px; border-radius: 22px; background: rgba(118, 128, 145, .14); }
+.ed-types button { height: 38px; padding: 0 18px; border-radius: 19px; font-size: 15px; font-weight: 500; color: var(--muted); }
+.ed-types button.on { background: var(--card); color: var(--text); font-weight: 600; box-shadow: 0 2px 8px rgba(15, 27, 45, .12); }
+.ed-ok { background: var(--accent); color: var(--on-accent); box-shadow: 0 6px 16px rgba(29, 53, 87, .3); }
+.ed-ok:active { background: var(--accent); filter: brightness(.9); }
+.ed-ok svg.i { stroke-width: 2.4; }
+.ed-main { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 6px; }
+.ed-cat { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px 0 6px; border-radius: 20px; max-width: 100%;
+  background: color-mix(in srgb, var(--c) 14%, transparent); color: color-mix(in srgb, var(--c) 70%, var(--text)); }
+.ed-cat.none { padding-left: 16px; background: var(--card-2); color: var(--text); }
+.ed-cat .dot { width: 30px; height: 30px; border-radius: 50%; background: var(--c); color: var(--on-cat); display: grid; place-items: center; flex: none; }
+.ed-cat .dot svg.ci { width: 18px; height: 18px; stroke-width: 1.9; }
+.ed-cat .n { font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ed-cat svg.i { width: 14px; height: 14px; stroke-width: 2.4; flex: none; }
+.ed-amount { text-align: center; width: 100%; }
+.ed-amount .expr { font-size: 15px; line-height: 18px; color: var(--muted); min-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ed-amount .val { display: flex; align-items: center; justify-content: center; font-size: 64px; line-height: 76px; font-weight: 600; letter-spacing: -1.5px;
+  white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ed-amount .val.empty { color: var(--muted); }
+.ed-amount .caret { width: 3px; height: 54px; border-radius: 2px; background: var(--accent); margin: 0 6px 0 4px; animation: caret 1.1s steps(1) infinite; }
+@keyframes caret { 50% { opacity: 0; } }
+.ed-amount .cur { color: var(--muted); font-weight: 500; }
+.ed-chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.ed-chips .chip { flex: none; position: relative; height: 36px; border-radius: 18px; background: var(--card); box-shadow: inset 0 0 0 .5px rgba(15, 27, 45, .12); font-size: 14px; }
 .ed-chips .chip input[type=date] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; }
-.ed-note { margin: 8px 16px 0; display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; }
-.ed-note svg.i { width: 18px; height: 18px; color: var(--muted); }
-.ed-note input { flex: 1; min-width: 0; border: 0; background: none; padding: 0; font-size: 16px; outline: 0; }
-.keypad { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: minmax(54px, 1fr); gap: 8px; padding: 12px 16px 8px; margin-top: auto; flex: 1; max-height: 300px; }
-.keypad button { border-radius: 12px; background: var(--card); font-size: 24px; font-weight: 500; box-shadow: var(--shadow); display: grid; place-items: center; font-variant-numeric: tabular-nums; }
-.keypad button.op { background: var(--card-2); color: var(--accent); font-weight: 400; box-shadow: none; }
-.keypad button svg.i { width: 26px; height: 26px; }
-
-.ok-btn { margin: 4px 16px 10px; height: 56px; border-radius: 16px; font-weight: 600; font-size: 17px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.ed-chips .note-chip input { border: 0; background: none; padding: 0; font: inherit; color: var(--text); outline: 0; min-width: 0; max-width: 160px; }
+.ed-chips .note-chip input::placeholder { color: var(--muted); }
+.ed-quick .lbl { font-size: 13px; font-weight: 500; color: var(--muted); padding: 0 0 6px 4px; }
+.ed-quick .row5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.ed-quick button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; border-radius: 18px; min-width: 0; }
+.ed-quick button.on { background: color-mix(in srgb, var(--c) 16%, transparent); }
+.ed-quick .ico { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 13%, transparent); }
+.ed-quick .ico svg { width: 21px; height: 21px; }
+.ed-quick .n { font-size: 11px; line-height: 14px; font-weight: 500; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px; }
+.keypad { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 54px; gap: 8px; margin-top: auto; }
+.keypad button { border-radius: 27px; background: var(--card); font-size: 24px; font-weight: 500; display: grid; place-items: center; font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 .5px 0 rgba(255, 255, 255, .9), 0 1px 2px rgba(15, 27, 45, .08); }
+.keypad button.op { background: var(--card-2); color: var(--accent); font-size: 22px; }
+.keypad button.k000 { font-size: 20px; }
+.keypad button svg.i { width: 24px; height: 24px; }
+.ok-btn { height: 56px; border-radius: 28px; font-weight: 600; font-size: 17px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--accent); color: var(--on-accent); box-shadow: 0 8px 20px rgba(29, 53, 87, .28); flex: none; }
 .ok-btn svg.i { width: 20px; height: 20px; stroke-width: 2; }
-.ed.expense .ok-btn { background: var(--exp); color: var(--on-exp); }
-.ed.income .ok-btn { background: var(--inc); color: var(--on-inc); }
+/* невисокі екрани: клавіші й сума менші; на найнижчих — без рядка «Часто цього місяця» */
+@media (max-height: 760px) {
+  .ed { gap: 10px; }
+  .keypad { grid-auto-rows: 48px; }
+  .keypad button { border-radius: 24px; }
+  .ed-amount .val { font-size: 52px; line-height: 62px; }
+  .ed-amount .caret { height: 44px; }
+  .ok-btn { height: 52px; }
+}
+@media (max-height: 620px) {
+  .ed-quick { display: none; }
+  .keypad { grid-auto-rows: 44px; }
+  .ed-amount .val { font-size: 44px; line-height: 52px; }
+  .ed-amount .caret { height: 38px; }
+}
 .shake { animation: shake .3s; }
 @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
 
@@ -415,7 +449,9 @@ button.row:active, .row.tap:active { background: var(--card-2); }
 .tab.pressed { color: var(--accent); background: var(--tab-on); }
 .big-title-btn.pressed { opacity: .6; }
 .btn-mid.pressed { opacity: .6; }
-.ed-types button.pressed, .ed-top .icon-btn.pressed { background: var(--seg-on-color); }
+.ed-types button.pressed { background: color-mix(in srgb, var(--card) 60%, transparent); }
+.ed-quick button.pressed { background: color-mix(in srgb, var(--c) 22%, transparent); }
+.ed-cat.pressed { filter: brightness(.94); }
 .ring-center.pressed svg { opacity: .7; }
 .color-grid button.pressed { outline: 3px solid var(--accent); outline-offset: 2px; }
 
