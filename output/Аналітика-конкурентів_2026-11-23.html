@@ -1,0 +1,348 @@
+<title>Гаманець, Copilot і Hold</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one reading column (max 1040px); summary → app cards → feature matrix → prioritized backlog → limits → sources */
+:root{
+  --bg:#F2F3F7; --card:#FFFFFF; --ink:#0F1B2D; --ink2:#566072; --line:#E3E6EE;
+  --brand:#1D3557; --brand-soft:rgba(29,53,87,.08);
+  --yes:#2F7A5B; --yes-soft:rgba(47,122,91,.12);
+  --mid:#A8601A; --mid-soft:rgba(168,96,26,.12);
+  --no:#6B7380; --no-soft:rgba(107,115,128,.12);
+  --p1:#1D3557; --p2:#4F8A8B; --p3:#7D5E8F; --p4:#6B7380;
+  --font:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0B111B; --card:#141C28; --ink:#EEF2F8; --ink2:#A3AEBF; --line:#243041;
+  --brand:#A8C3EA; --brand-soft:rgba(168,195,234,.12);
+  --yes:#6CC59A; --yes-soft:rgba(108,197,154,.14);
+  --mid:#E9A05C; --mid-soft:rgba(233,160,92,.14);
+  --no:#A3AEBF; --no-soft:rgba(163,174,191,.12);
+  --p1:#A8C3EA; --p2:#7FC0C1; --p3:#C3A6D4; --p4:#A3AEBF; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0B111B; --card:#141C28; --ink:#EEF2F8; --ink2:#A3AEBF; --line:#243041;
+  --brand:#A8C3EA; --brand-soft:rgba(168,195,234,.12);
+  --yes:#6CC59A; --yes-soft:rgba(108,197,154,.14);
+  --mid:#E9A05C; --mid-soft:rgba(233,160,92,.14);
+  --no:#A3AEBF; --no-soft:rgba(163,174,191,.12);
+  --p1:#A8C3EA; --p2:#7FC0C1; --p3:#C3A6D4; --p4:#A3AEBF; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 64px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:48px}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(30px,5vw,44px);font-weight:700;letter-spacing:-.5px}
+h2{font-size:26px;font-weight:600;letter-spacing:-.3px}
+h3{font-size:18px;font-weight:600}
+p{margin:0}
+.lead{font-size:18px;color:var(--ink2);max-width:64ch}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+section{display:flex;flex-direction:column;gap:18px}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--brand)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:6px}
+
+/* hero verdict */
+.verdict{background:var(--card);border-radius:28px;padding:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}
+.verdict div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.verdict b{font-size:15px}
+.verdict span{font-size:15px;color:var(--ink2)}
+
+/* app cards */
+.apps{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.app{background:var(--card);border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.app.me{box-shadow:inset 0 0 0 2px var(--brand)}
+.app header{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.app dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.app dt{color:var(--ink2)}
+.app dd{margin:0}
+.tag{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--brand-soft);color:var(--brand);white-space:nowrap}
+.app p{font-size:14px;color:var(--ink2)}
+
+/* matrix */
+.tablebox{overflow-x:auto;background:var(--card);border-radius:24px}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:10px 14px;border-bottom:1px solid var(--line)}
+thead th{font-size:13px;color:var(--ink2);font-weight:600;position:sticky;top:0;background:var(--card)}
+thead th.me{color:var(--brand)}
+td.me{background:var(--brand-soft)}
+tr.group th{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);background:var(--bg);padding:8px 14px}
+td:first-child{font-weight:500;width:22%}
+.m{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;margin-right:6px;white-space:nowrap}
+.m.y{background:var(--yes-soft);color:var(--yes)}
+.m.p{background:var(--mid-soft);color:var(--mid)}
+.m.n{background:var(--no-soft);color:var(--no)}
+.m.u{background:transparent;color:var(--no);box-shadow:inset 0 0 0 1px var(--line)}
+.note{color:var(--ink2)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--ink2)}
+
+/* backlog */
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+.filters button{font:inherit;font-size:14px;font-weight:500;border:0;cursor:pointer;height:36px;padding:0 14px;border-radius:18px;background:var(--card);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.filters button[aria-pressed="true"]{background:var(--brand);color:var(--bg);box-shadow:none}
+.tier{display:flex;flex-direction:column;gap:12px}
+.tier-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.tier-head .pill{font-family:var(--mono);font-size:13px;padding:2px 10px;border-radius:8px;color:var(--bg)}
+.tier-head p{color:var(--ink2);font-size:15px;flex:1 1 300px;min-width:0}
+.items{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.item{background:var(--card);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.item .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.item .rank{font-family:var(--mono);font-size:13px;color:var(--ink2)}
+.meta{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;font-weight:500;padding:2px 8px;border-radius:999px;background:var(--bg);color:var(--ink2)}
+.item .what{font-size:15px}
+.item .who{font-size:14px;color:var(--ink2)}
+.pc{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:14px}
+.pc div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.pc b{font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.pc .plus b{color:var(--yes)} .pc .minus b{color:var(--mid)}
+.pc ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:2px}
+.bar{display:flex;gap:3px;align-items:center}
+.bar i{width:12px;height:6px;border-radius:3px;background:var(--line)}
+.bar i.on{background:var(--brand)}
+.scorebox{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink2);align-items:center}
+.scorebox span{display:flex;gap:6px;align-items:center}
+
+/* start + limits */
+.start{background:var(--card);border-radius:28px;padding:24px;display:flex;flex-direction:column;gap:14px}
+.start ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px}
+.limits{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.limit{background:var(--card);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.limit p{font-size:14px;color:var(--ink2)}
+.design{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.sources{font-size:14px;color:var(--ink2);display:flex;flex-direction:column;gap:6px}
+.sources ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+@media (max-width:520px){.pc{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:14px">
+  <span class="eyebrow">Аналітика · 23 листопада 2026 · чат «Креативщик»</span>
+  <h1>Гаманець, Copilot і Hold</h1>
+  <p class="lead">Що вміють два популярні застосунки, чого не вистачає твоєму «Гаманцю» (v1.4.5, дизайн «Скло»), що з цього реально зробити у веб-застосунку на iPhone і з чого почати.</p>
+</header>
+
+<div class="verdict" aria-label="Коротко">
+  <div><b>Copilot Money</b><span>Найсильніший за глибиною: банки, інвестиції, підписки, ШІ. Але лише США й Канада і близько $95 на рік.</span></div>
+  <div><b>Hold</b><span>Найближчий до твого задуму: швидке внесення, чеки, голос, Apple Pay, бюджети «на день». Підписка до $9,99 на тиждень.</span></div>
+  <div><b>Твій Гаманець</b><span>Найшвидше внесення (дотик до кола), калькулятор, валюти з курсом НБУ, імпорт Monefy, усе безкоштовно й лише на телефоні.</span></div>
+  <div><b>Почати з</b><span>Трьох функцій з Hold: «можна витратити сьогодні», підказка категорії за коментарем, попередження бюджету одразу після запису.</span></div>
+</div>
+
+<section aria-labelledby="h-apps">
+  <h2 id="h-apps">Три застосунки</h2>
+  <div class="apps">
+    <article class="app">
+      <header><h3>Copilot Money</h3><span class="tag">США · Канада</span></header>
+      <dl>
+        <dt>Для кого</dt><dd>Американці з кількома банками й інвестиціями</dd>
+        <dt>Платформи</dt><dd>iPhone, iPad, Mac, веб</dd>
+        <dt>Ціна</dt><dd class="num">≈ $95 на рік або $13 на місяць</dd>
+        <dt>Дані</dt><dd>Хмара Copilot + підключення до банків</dd>
+        <dt>Визнання</dt><dd>Фіналіст Apple Design Award, Editor's Choice</dd>
+      </dl>
+      <p>Операції підтягуються з банків самі, ШІ розкладає їх по категоріях. У жовтні 2026 додали ШІ-асистента, який відповідає на питання і з дозволу виправляє операції.</p>
+    </article>
+    <article class="app">
+      <header><h3>Hold: Гаманець Фінансів</h3><span class="tag">є в Україні</span></header>
+      <dl>
+        <dt>Розробник</dt><dd>Mykola Albert, v1.6.2 (28 жовтня 2026)</dd>
+        <dt>Платформи</dt><dd>iPhone, iPad, Mac, Vision Pro; iOS 15.1+</dd>
+        <dt>Ціна</dt><dd class="num">Безкоштовно + підписка: $3,99 або $9,99 на тиждень, $5,99 на місяць, $17,99 на рік</dd>
+        <dt>Дані</dt><dd>Телефон + твій iCloud, без банку</dd>
+        <dt>Оцінка</dt><dd class="num">5,0 (лише 7 оцінок)</dd>
+      </dl>
+      <p>Акцент на швидкості: фото чека, голос або 3 дотики. Бюджети попереджають на 80 %. Опис узято зі сторінки App Store і скриншотів — це реклама, у самому застосунку частина функцій може бути платною.</p>
+    </article>
+    <article class="app me">
+      <header><h3>Гаманець</h3><span class="tag">твій</span></header>
+      <dl>
+        <dt>Для кого</dt><dd>Ти: ручний облік замість Monefy</dd>
+        <dt>Платформи</dt><dd>iPhone (веб-застосунок з Safari), працює офлайн</dd>
+        <dt>Ціна</dt><dd>Безкоштовно, без реклами й підписок</dd>
+        <dt>Дані</dt><dd>Лише на телефоні, резервна копія файлом</dd>
+        <dt>Версія</dt><dd>v1.4.5, дизайн «Скло» (iOS 27)</dd>
+      </dl>
+      <p>Код твій: будь-яку функцію можна додати під себе. Обмеження — тільки те, що Apple дозволяє веб-застосункам.</p>
+    </article>
+  </div>
+</section>
+
+<section aria-labelledby="h-matrix">
+  <h2 id="h-matrix">Що вміє кожен</h2>
+  <div class="legend">
+    <span><span class="m y">Так</span>є</span>
+    <span><span class="m p">Частково</span>є, але простіше</span>
+    <span><span class="m n">Ні</span>немає</span>
+    <span><span class="m u">Невідомо</span>не знайшов у джерелах</span>
+  </div>
+  <div class="tablebox">
+    <table>
+      <thead><tr><th scope="col">Функція</th><th scope="col">Copilot</th><th scope="col">Hold</th><th scope="col" class="me">Гаманець</th><th scope="col">Чи можна у твоєму веб-застосунку</th></tr></thead>
+      <tbody id="matrix"></tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="h-roadmap">
+  <h2 id="h-roadmap">Що додати і в якому порядку</h2>
+  <p class="lead" style="font-size:16px">Пріоритет = користь для тебе щодня × простота. Першими йдуть функції, що працюють на даних, які вже є, і не змінюють структуру бази (не потрібен бекап).</p>
+  <div class="filters" role="group" aria-label="Фільтр за пріоритетом">
+    <button type="button" id="f-all" data-f="all" aria-pressed="true">Усі</button>
+    <button type="button" id="f-1" data-f="1" aria-pressed="false">P1 · почати зараз</button>
+    <button type="button" id="f-2" data-f="2" aria-pressed="false">P2 · наступні</button>
+    <button type="button" id="f-3" data-f="3" aria-pressed="false">P3 · пізніше</button>
+  </div>
+  <div id="tiers" style="display:flex;flex-direction:column;gap:28px"></div>
+</section>
+
+<section aria-labelledby="h-start">
+  <h2 id="h-start">З чого почати і чому</h2>
+  <div class="start">
+    <ol>
+      <li><b>Один блок для інженера: три функції P1 разом.</b> Усі три чіпають два місця, якими ти користуєшся щодня: шторку «Нова витрата» і бюджети. Це v1.5.0.</li>
+      <li><b>Чому не регулярні платежі першими.</b> Вони корисні, але потребують нового сховища в базі — тобто бекапу перед оновленням і більше перевірок. Логічно другим блоком.</li>
+      <li><b>Чому не чеки й ШІ.</b> У веб-застосунку це або важко й неточно (розпізнавання в браузері), або означає відправляти твої операції в хмару. Суперечить головному принципу «дані лише на телефоні».</li>
+      <li><b>Що вже зроблено з ідей конкурентів.</b> Графік «Темп витрат» і порівняння з минулим місяцем (як у Copilot і Hold) з'явились у v1.4.1–1.4.4.</li>
+    </ol>
+  </div>
+</section>
+
+<section aria-labelledby="h-design">
+  <h2 id="h-design">Що підглянути в дизайні Hold</h2>
+  <div class="design">
+    <div class="limit"><h3>Картка-порада з кнопками</h3><p>«Цього місяця на кав'ярні на 32 % більше, ніж зазвичай» + кнопки «Установити ліміт» / «Не зараз». Порада одразу веде до дії, а не просто інформує.</p></div>
+    <div class="limit"><h3>Бюджет трьома цифрами</h3><p>Під бубликом три плитки: «233 $ можна витрачати на день», «5 днів залишилось», «+120 $ перенесено». Відповідь на «скільки ще можна?» без рахунку в голові.</p></div>
+    <div class="limit"><h3>Підказка під сумою</h3><p>Одразу під сумою чип «Схоже на Whole Foods → Продукти». Не підставляє мовчки, а пропонує — один дотик, щоб погодитись.</p></div>
+    <div class="limit"><h3>Чип «Заощаджено +2 165»</h3><p>На графіку темпу зелений чип з різницею. У тебе вже є схожий чип ±% — можна показувати і суму.</p></div>
+  </div>
+</section>
+
+<section aria-labelledby="h-limits">
+  <h2 id="h-limits">Чого веб-застосунок на iPhone не вміє</h2>
+  <div class="limits">
+    <div class="limit"><h3>Віджети й Apple Watch</h3><p>Apple дає їх лише звичайним застосункам з App Store. Для веб-застосунку на початковому екрані — неможливо.</p></div>
+    <div class="limit"><h3>Синхронізація через iCloud</h3><p>Недоступна для вебу. Замінник уже є: резервна копія файлом у «Файли» / iCloud Drive через «Поділитися».</p></div>
+    <div class="limit"><h3>Пуш-сповіщення</h3><p>Технічно можливі з iOS 16.4, але потрібен сервер, що їх надсилає, і туди пішли б дані. Тому попередження — лише всередині застосунку.</p></div>
+    <div class="limit"><h3>Автозапис Apple Pay</h3><p>У Hold працює через «Команди» iOS. Веб-застосунок не може отримати дані від «Команд» напряму: посилання відкривається в Safari, а в нього окреме сховище. Можна лише перевірити обхідний шлях (P3).</p></div>
+    <div class="limit"><h3>Face ID</h3><p>Можна зробити через ключі доступу, але без сервера це лише «замок для вигляду»: дані в телефоні не шифруються. Користі мало — краще «сховати суми».</p></div>
+    <div class="limit"><h3>Підключення банку</h3><p>Як у Copilot — ні (американські агрегатори). Але в monobank є особистий API з токеном — це варіант для перевірки (P3).</p></div>
+  </div>
+</section>
+
+<footer class="sources">
+  <b>Джерела</b>
+  <ul>
+    <li>Hold: сторінка <a href="https://apps.apple.com/ua/app/id6458838279" target="_blank" rel="noopener">App Store (Україна)</a> — опис, підписки, історія версій, 7 скриншотів.</li>
+    <li>Copilot: <a href="https://apps.apple.com/us/app/id1447330651" target="_blank" rel="noopener">App Store (США)</a>, <a href="https://developer.apple.com/articles/copilot-money" target="_blank" rel="noopener">Apple Developer</a>, огляди <a href="https://www.thepennyhoarder.com/budgeting/budgeting-copilot-money-review/" target="_blank" rel="noopener">Penny Hoarder</a>, <a href="https://thecollegeinvestor.com/41976/copilot-review/" target="_blank" rel="noopener">College Investor</a>, <a href="https://9to5mac.com/2026/10/27/copilot-money-gets-even-better-with-new-ai-powered-money-assistant/" target="_blank" rel="noopener">9to5Mac (Money Assistant)</a>.</li>
+    <li>Гаманець: журнал проєкту (CLAUDE.md), v1.4.5.</li>
+    <li>«Невідомо» в таблиці означає, що функцію не знайдено в джерелах, а не що її точно немає.</li>
+  </ul>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  var Y='y',P='p',N='n',U='u';
+  var L={y:'Так',p:'Частково',n:'Ні',u:'Невідомо'};
+  // [feature, [copilot mark, note], [hold], [hamanets], [pwa mark, note]]
+  var M=[
+    ['Внесення операцій'],
+    ['Ручне внесення витрат і доходів',[Y,''],[Y,'«готово за 3 секунди»'],[Y,'кільце + шторка'],[Y,'є']],
+    ['Витрата одним дотиком з головного екрана',[N,'операції з банку'],[P,'рядок категорій у шторці'],[Y,'дотик до кола на кільці'],[Y,'є']],
+    ['Калькулятор у сумі',[U,''],[N,'звичайна клавіатура'],[Y,'+ − × ÷, 000'],[Y,'є']],
+    ['Підказка категорії за назвою',[Y,'ШІ з рівнем упевненості'],[Y,'«Схоже на … → Продукти», пам\'ятає'],[N,'лише порядок за частотою'],[Y,'P1: за коментарем з історії']],
+    ['Голосове внесення',[U,''],[Y,'«Кава 4,50»'],[N,''],[P,'P2: диктування клавіатури iOS у рядку «кава 45»']],
+    ['Сканування чека',[N,'лише розбивка Amazon'],[Y,'на iPhone, по рядках'],[N,''],[N,'важко й неточно в браузері']],
+    ['Автозапис оплат Apple Pay / банку',[Y,'з банків США/Канади'],[Y,'через Wallet і «Команди»'],[N,''],[P,'P3: експеримент з «Командами» або monobank API']],
+    ['Розділити операцію',[Y,''],[Y,'«Розділити»'],[N,''],[Y,'P3']],
+    ['Перекази між рахунками',[Y,''],[Y,''],[Y,'режим «Кілька рахунків»'],[Y,'є']],
+    ['Регулярні платежі й підписки',[Y,'знаходить сам'],[U,''],[N,'в ідеях'],[Y,'P2: нагадування + запис одним дотиком']],
+    ['Теги',[Y,''],[U,''],[N,''],[Y,'P3']],
+    ['Імпорт з іншого застосунку',[U,''],[U,''],[Y,'CSV з Monefy'],[Y,'є']],
+    ['Аналітика'],
+    ['Категорії діаграмою',[Y,''],[Y,'бублик + список'],[Y,'кільце + список місяця'],[Y,'є']],
+    ['Темп витрат: цей місяць проти минулого',[Y,''],[Y,'лінія + «Заощаджено»'],[Y,'з v1.4.4'],[Y,'є']],
+    ['Періоди',[P,'місяць, рік'],[Y,'тиждень, місяць, рік, довільний'],[P,'місяць, рік'],[Y,'P3: тиждень і довільний']],
+    ['Топ місць / продавців',[Y,''],[Y,'«Основні продавці»'],[N,''],[P,'P2: за коментарями']],
+    ['Доходи проти витрат, заощадження',[Y,'cash flow'],[Y,''],[Y,'рік: % заощаджень'],[Y,'є']],
+    ['Підсумок місяця / року',[Y,'month / year in review'],[U,''],[P,'шторка «Підсумок»'],[Y,'P2: картка 1-го числа']],
+    ['Поради',[Y,'ШІ'],[Y,'ШІ-поради з кнопками дії'],[N,''],[Y,'P2: прості правила без ШІ, офлайн']],
+    ['ШІ-чат «запитай про гроші»',[Y,'Money Assistant'],[Y,'текст і голос'],[N,''],[N,'потрібна хмара й платний ключ']],
+    ['Бюджети й цілі'],
+    ['Бюджети за категоріями',[Y,''],[Y,''],[Y,'≥85 % — «майже вичерпано»'],[Y,'є']],
+    ['«Можна витратити на день» і днів до кінця',[U,''],[Y,'три плитки під бубликом'],[P,'лише «залишилось N днів»'],[Y,'P1']],
+    ['Попередження про ліміт',[U,''],[Y,'пуш на 80 %'],[P,'видно лише в статистиці'],[P,'P1: тост одразу після запису (без пушу)']],
+    ['Перенесення залишку бюджету',[Y,'rollover'],[Y,'«Перенесено +120»'],[N,''],[Y,'P2']],
+    ['Цілі заощаджень',[Y,''],[P,'вкладка «Плани»'],[N,''],[Y,'P3']],
+    ['Інвестиції, капітал, нерухомість',[Y,''],[N,''],[N,''],[N,'не твій сценарій']],
+    ['Дані, приватність, платформа'],
+    ['Де живуть дані',[P,'хмара + банк'],[Y,'телефон + твій iCloud'],[Y,'лише телефон'],[Y,'є']],
+    ['Синхронізація між пристроями',[Y,'iPhone, iPad, Mac, веб'],[Y,'iCloud'],[N,''],[N,'iCloud для вебу недоступний']],
+    ['Резервна копія і експорт',[U,''],[U,''],[Y,'JSON + CSV, у «Файли»'],[Y,'є']],
+    ['Face ID і приховані суми',[U,''],[Y,''],[N,''],[P,'P2: «сховати суми»; Face ID — без користі']],
+    ['Кілька валют',[U,''],[U,''],[Y,'курс НБУ щодня'],[Y,'є']],
+    ['Офлайн',[N,'потрібна мережа'],[Y,''],[Y,''],[Y,'є']],
+    ['Віджети, Apple Watch',[Y,'віджети'],[U,''],[N,''],[N,'недоступно вебу']],
+    ['Темна тема',[Y,''],[Y,''],[Y,''],[Y,'є']],
+    ['Українська мова',[N,''],[Y,''],[Y,''],[Y,'є']],
+    ['Ціна',[N,'≈ $95 / рік'],[P,'підписка, $17,99 / рік'],[Y,'безкоштовно'],[Y,'—']]
+  ];
+  var tb=document.getElementById('matrix'), h='';
+  function cell(c,me){return '<td'+(me?' class="me"':'')+'><span class="m '+c[0]+'">'+L[c[0]]+'</span>'+(c[1]?'<span class="note">'+c[1]+'</span>':'')+'</td>'}
+  M.forEach(function(r){
+    if(r.length===1){h+='<tr class="group"><th colspan="5" scope="colgroup">'+r[0]+'</th></tr>';return}
+    h+='<tr><td>'+r[0]+'</td>'+cell(r[1])+cell(r[2])+cell(r[3],true)+cell(r[4])+'</tr>';
+  });
+  tb.innerHTML=h;
+
+  // backlog items: p, title, from, what, who, plus[], minus[], value 1-5, effort 1-5 (5 = hardest)
+  var I=[
+    {p:1,t:'«Можна витратити сьогодні»',from:'Hold',what:'У бюджеті й на Огляді: скільки можна тратити на день до кінця місяця = (ліміт − витрачено) / днів, що лишилось. Плюс «N днів залишилось».',who:'Тобі щодня: одна цифра замість рахунку в голові «скільки ще можна на продукти».',plus:['Ліміт стає щоденною дією','Дані вже є, база не змінюється'],minus:['Після великої разової покупки цифра різко падає','Без бюджетів нічого не показує'],v:5,e:1},
+    {p:1,t:'Підказка категорії за коментарем',from:'Hold, Copilot',what:'Пишеш у коментарі «Сільпо» — під сумою з\'являється чип «Схоже на Продукти». Пам\'ять береться з твоїх минулих операцій з таким самим коментарем.',who:'Для швидкого запису: менше дотиків і однакові категорії для тих самих місць.',plus:['Вчиться сам, без ШІ й інтернету','Пропонує, а не підставляє мовчки'],minus:['Працює лише якщо пишеш коментарі','Перший раз для нового місця підказки немає'],v:4,e:2},
+    {p:1,t:'Попередження бюджету одразу після запису',from:'Hold',what:'Якщо запис перевів бюджет за 80 % або за 100 %, у тості після «Зберегти» — «Кафе: 86 % · ще 350 ₴ на 8 днів».',who:'Щоб дізнатися про перевищення в момент витрати, а не наприкінці місяця.',plus:['Без серверів і пушів','Використовує вже готові бюджети'],minus:['Не нагадає, якщо застосунок закритий','Можна набриднути — показувати раз на поріг'],v:4,e:1},
+    {p:2,t:'Регулярні платежі й підписки',from:'Copilot (і твої ідеї)',what:'Список «Регулярні»: інтернет, телефон, Netflix — сума й день. У потрібний день на Огляді картка «Записати 250 ₴ · Зв\'язок?» — один дотик.',who:'Для щомісячних платежів, які зараз треба вносити вручну щоразу.',plus:['Не забудеш внести','Видно, скільки йде на підписки за рік'],minus:['Нове сховище в базі → потрібен бекап перед оновленням','Без пушів нагадує лише при відкритті'],v:4,e:3},
+    {p:2,t:'Перенесення залишку бюджету',from:'Copilot, Hold',what:'Не витратив 300 ₴ з «Кафе» в жовтні — у листопаді ліміт 2 800 замість 2 500 (вмикається для кожного бюджету окремо).',who:'Для бюджетів «на сезон»: одяг, подарунки, ремонт авто.',plus:['Чесніший бюджет для нерівномірних витрат'],minus:['Складніше пояснити цифру','Зміна логіки бюджетів + тести'],v:3,e:3},
+    {p:2,t:'Поради без ШІ',from:'Hold, Copilot',what:'Прості правила на твоїх даних: «Кафе цього місяця на 32 % більше, ніж зазвичай», «Найбільша витрата тижня — 1 260 ₴, Продукти». Картка з кнопкою «Установити ліміт».',who:'Щоб помічати зміни звичок, не відкриваючи статистику.',plus:['Офлайн, нічого не йде в мережу','Кнопка веде одразу до дії'],minus:['Правила треба підібрати, щоб не було шуму','Не відповість на довільне питання, як ШІ'],v:3,e:3},
+    {p:2,t:'Швидкий рядок «кава 45»',from:'Hold (голос)',what:'Поле, куди можна написати або надиктувати мікрофоном клавіатури iOS «кава 45» — застосунок сам знаходить суму й категорію.',who:'Для запису на ходу, однією рукою, без пошуку категорії.',plus:['Голос без API: працює диктування iPhone','Поєднується з підказкою категорії'],minus:['Розбір фраз — помилки на незвичних словах','Дублює вже швидкий дотик до кола'],v:2,e:3},
+    {p:2,t:'Топ місць за коментарями',from:'Hold, Copilot',what:'У статистиці місяця: «Сільпо 3 420 ₴ · АТБ 1 260 ₴ · Аптека 640 ₴».',who:'Щоб бачити не лише категорію, а конкретне місце, куди йдуть гроші.',plus:['Дешево зробити','Дані вже є'],minus:['Корисно лише якщо пишеш коментарі однаково'],v:2,e:1},
+    {p:2,t:'Сховати суми',from:'Hold',what:'Перемикач (або дотик до суми), який замінює суми на «•••» — коли показуєш телефон іншим.',who:'Для приватності в транспорті, на роботі.',plus:['Дуже просто'],minus:['Не захищає дані, лише ховає з екрана'],v:2,e:1},
+    {p:2,t:'Підсумок місяця',from:'Copilot',what:'1-го числа на Огляді картка: витрачено, заощаджено, найбільша категорія, порівняння з попереднім місяцем.',who:'Щоб закрити місяць одним поглядом і побачити тренд.',plus:['Приємний ритуал','Дані вже є'],minus:['Частково дублює шторку «Підсумок»'],v:2,e:2},
+    {p:3,t:'Розділити операцію',from:'Hold, Copilot',what:'Один чек 1 200 ₴ → 900 Продукти + 300 Дім.',who:'Для великих покупок у супермаркеті.',plus:['Точніша статистика'],minus:['Ускладнює редактор','Рідко потрібно'],v:2,e:3},
+    {p:3,t:'Цілі заощаджень',from:'Copilot, Hold',what:'«Відпустка: 20 000 ₴ до липня» з прогрес-кільцем і сумою на місяць.',who:'Якщо почнеш відкладати на щось конкретне.',plus:['Мотивує'],minus:['Нове сховище в базі','Зараз не твій сценарій'],v:2,e:3},
+    {p:3,t:'Тиждень і довільний період',from:'Hold',what:'Сегмент «Тиждень | Місяць | Рік | Період» у статистиці.',who:'Для поїздок і відпусток.',plus:['Логіка періодів уже є'],minus:['Ще один перемикач на екрані'],v:2,e:2},
+    {p:3,t:'Теги',from:'Copilot',what:'Мітки поверх категорій: #відпустка, #ремонт.',who:'Щоб порахувати витрати однієї події з різних категорій.',plus:['Гнучко'],minus:['Ще одне поле в записі','Нове поле в даних'],v:1,e:3},
+    {p:3,t:'Автозапис Apple Pay (експеримент)',from:'Hold',what:'Автоматизація «Команд» iOS на оплату з Wallet → відкриває Гаманець з сумою й назвою магазину.',who:'Якщо платиш телефоном і хочеш записувати без внесення.',plus:['Найменше ручної роботи'],minus:['Посилання відкривається в Safari з окремим сховищем — може не працювати','Треба перевірити на твоєму iPhone'],v:3,e:5},
+    {p:3,t:'Імпорт з monobank (експеримент)',from:'Copilot (банки)',what:'Особистий токен monobank → застосунок сам тягне операції за місяць.',who:'Якщо основна картка — monobank.',plus:['Майже автоматичний облік'],minus:['Токен зберігається на телефоні — ризик','Не перевірено, чи пускає браузер (CORS)','Ліміт: 1 запит на хвилину'],v:3,e:5}
+  ];
+  var T={1:['P1','Почати зараз','Щоденна користь, дані вже є, база не змінюється.','var(--p1)'],2:['P2','Наступні','Корисно, але або менше потрібно щодня, або змінює базу (потрібен бекап).','var(--p2)'],3:['P3','Пізніше або експерименти','Рідко потрібно або є технічний ризик — перевіряти окремо.','var(--p3)']};
+  function bar(n,lbl){var s='<span class="bar" role="img" aria-label="'+lbl+': '+n+' з 5">';for(var i=1;i<=5;i++)s+='<i class="'+(i<=n?'on':'')+'"></i>';return s+'</span>'}
+  var out='', rank=0;
+  [1,2,3].forEach(function(p){
+    var t=T[p];
+    out+='<div class="tier" data-p="'+p+'"><div class="tier-head"><span class="pill" style="background:'+t[3]+'">'+t[0]+'</span><h3>'+t[1]+'</h3><p>'+t[2]+'</p></div><div class="items">';
+    I.filter(function(x){return x.p===p}).forEach(function(x){
+      rank++;
+      out+='<article class="item"><div class="top"><h3>'+x.t+'</h3><span class="rank">#'+rank+'</span></div>'+
+        '<div class="meta"><span class="chip">Ідея з: '+x.from+'</span></div>'+
+        '<p class="what">'+x.what+'</p><p class="who"><b>Для кого і навіщо.</b> '+x.who+'</p>'+
+        '<div class="pc"><div class="plus"><b>Плюси</b><ul>'+x.plus.map(function(s){return '<li>'+s+'</li>'}).join('')+'</ul></div>'+
+        '<div class="minus"><b>Мінуси</b><ul>'+x.minus.map(function(s){return '<li>'+s+'</li>'}).join('')+'</ul></div></div>'+
+        '<div class="scorebox"><span>Користь '+bar(x.v,'Користь')+'</span><span>Складність '+bar(x.e,'Складність')+'</span></div></article>';
+    });
+    out+='</div></div>';
+  });
+  document.getElementById('tiers').innerHTML=out;
+  var btns=document.querySelectorAll('.filters button');
+  btns.forEach(function(b){b.addEventListener('click',function(){
+    var f=b.getAttribute('data-f');
+    btns.forEach(function(o){o.setAttribute('aria-pressed',o===b?'true':'false')});
+    document.querySelectorAll('.tier').forEach(function(t){t.hidden=!(f==='all'||t.getAttribute('data-p')===f)});
+  })});
+})();
+</script>
